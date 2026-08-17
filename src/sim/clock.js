@@ -25,6 +25,7 @@ export const RATE_STEPS = [
   { rate: 3600, label: '1 h/s' },
   { rate: 28800, label: '8 h/s' },
   { rate: 86400, label: '24 h/s' },
+  { rate: 604800, label: '1 week/s' },
 ];
 
 export const DEFAULT_STEP = 0; // real-time

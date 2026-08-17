@@ -146,10 +146,10 @@ up without touching distances.
 In free-fly, speed scales with the distance to the nearest surface, so you crawl
 near a planet and cross the solar system when nothing is close.
 
-Time runs at one of six fixed rates — **real-time** (the default), 1 min/s,
-30 min/s, 1 h/s, 8 h/s, 24 h/s — rather than on a continuous slider, because
-those are the rates that are actually useful and a log slider is hard to land
-on any of them.
+Time runs at one of seven fixed rates — **real-time** (the default), 1 min/s,
+30 min/s, 1 h/s, 8 h/s, 24 h/s, 1 week/s — rather than on a continuous slider,
+because those are the rates that are actually useful and a log slider is hard to
+land on any of them.
 
 ### Smart TV
 
