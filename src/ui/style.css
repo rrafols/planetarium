@@ -319,11 +319,8 @@ input[type=range]::-moz-range-thumb {
 }
 .load-note { margin-top: 10px; font-size: 10px; color: var(--ink-dim); }
 
-@media (max-width: 900px) {
-  #help-panel, #bodies-panel { display: none; }
-  #info-panel { min-width: 0; width: 190px; }
-  #eclipse-panel { bottom: auto; top: 200px; }
-}
+/* Small screens are handled by ui/mobile.js, which moves these panels into a
+   drawer rather than hiding them — the focus list is the main navigation. */
 
 /* Scoped rather than a global .hidden, so it cannot fight the eclipse
    banner's opacity fade or the label layer's inline display toggling. */
@@ -465,3 +462,162 @@ body.tv #tv-hint { display: flex; }
 .rate-tick:hover { color: var(--ink); }
 .rate-tick.on { color: var(--hi); }
 #rate-labels { gap: 4px; }
+
+/* ============================================================= touch / mobile */
+/*
+ * On a phone the corner-pinned HUD covers the thing you came to look at, and
+ * there is no keyboard for the H shortcut. The panels move into a drawer
+ * (see ui/mobile.js) and only the clock, banner and transport bar stay out.
+ */
+
+#touch-controls {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  display: none;
+  gap: 8px;
+  z-index: 30;
+}
+body.mobile #touch-controls { display: flex; }
+
+#touch-controls button {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-brd);
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+#touch-controls button:active { background: rgba(127, 196, 255, .22); }
+
+/* The hide-interface button must survive its own hiding. */
+body.ui-hidden #touch-controls { opacity: 1; pointer-events: auto; }
+body.ui-hidden #ui-toggle { color: var(--hi); }
+body.ui-hidden #drawer-toggle { display: none; }
+
+#drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(340px, 88vw);
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 11, 18, .95);
+  border-left: 1px solid var(--panel-brd);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 45;
+  transform: translateX(0);
+  transition: transform .26s cubic-bezier(.4, 0, .2, 1);
+}
+#drawer.closed { transform: translateX(101%); }
+
+#drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-brd);
+  font-size: 11px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--hi);
+  flex: 0 0 auto;
+}
+#drawer-head button {
+  border: 0;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: 0;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+#drawer-inner {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Panels lose their fixed positioning once they live in the drawer. */
+#drawer-inner .panel {
+  position: static;
+  width: auto;
+  max-height: none;
+  min-width: 0;
+  transform: none;
+  inset: auto;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(255, 255, 255, .035);
+}
+#drawer-inner #bodies-panel { max-height: none; overflow: visible; }
+
+#drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  z-index: 40;
+  opacity: 1;
+  transition: opacity .26s ease;
+}
+#drawer-scrim.closed { opacity: 0; pointer-events: none; }
+
+body.mobile #clock-panel {
+  top: 12px;
+  left: 12px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+body.mobile #clock-panel .date { font-size: 16px; margin-bottom: 2px; }
+/* Julian day is for reference, not for a 360 px wide screen. */
+body.mobile #row-jd { display: none; }
+
+body.mobile #time-panel {
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  width: auto;
+  transform: none;
+  padding: 10px;
+}
+body.mobile .tbar button { padding: 11px 4px; font-size: 14px; }
+body.mobile .tlabels { font-size: 9px; }
+/* Six rate labels do not fit; the active one is shown in the clock panel. */
+body.mobile #rate-labels .rate-tick { display: none; }
+body.mobile #rate-labels .rate-tick:first-child,
+body.mobile #rate-labels .rate-tick:last-child,
+body.mobile #rate-labels .rate-tick.on { display: inline; }
+
+body.mobile #eclipse-banner {
+  left: 12px;
+  right: 12px;
+  transform: none;
+  top: 68px;
+  padding: 8px 12px;
+}
+body.mobile .label { font-size: 12px; padding: 3px 9px 3px 6px; }
+body.mobile #tv-hint { display: none; }
+
+/* Bigger hit targets for fingers. */
+body.mobile .body-btn { padding: 9px 8px; }
+body.mobile .ck { padding: 6px 0; }
+body.mobile .ebtns button { padding: 10px 4px; }
+body.mobile input[type=range] { height: 5px; }
+body.mobile input[type=range]::-webkit-slider-thumb { width: 20px; height: 20px; }
+
+/* Keyboard hints are noise on a touch device. */
+body.mobile .hdr .hint,
+body.mobile .body-btn kbd { display: none; }

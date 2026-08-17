@@ -28,6 +28,7 @@ import { Clock } from './sim/clock.js';
 import { solarEclipse, lunarEclipse, findEclipse } from './sim/eclipse.js';
 import { Hud, NUMBER_KEYS } from './ui/hud.js';
 import { Labels } from './ui/labels.js';
+import { MobileLayout } from './ui/mobile.js';
 import { TvControls, looksLikeTV } from './controls/tv.js';
 
 /* ------------------------------------------------------------------ setup */
@@ -139,6 +140,8 @@ async function boot() {
     }),
   });
   if (looksLikeTV()) enableTvMode(true);
+
+  new MobileLayout();
 
   bindGlobalInput();
   addEventListener('resize', onResize);

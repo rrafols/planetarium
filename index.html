@@ -44,7 +44,7 @@
     <div class="panel" id="clock-panel">
       <div class="date" id="ui-date">—</div>
       <div class="row"><span class="k">UTC</span><span class="v" id="ui-time">—</span></div>
-      <div class="row"><span class="k">Julian day</span><span class="v" id="ui-jd">—</span></div>
+      <div class="row" id="row-jd"><span class="k">Julian day</span><span class="v" id="ui-jd">—</span></div>
       <div class="row"><span class="k">Rate</span><span class="v hi" id="ui-rate">—</span></div>
     </div>
 
@@ -153,6 +153,22 @@
         <div class="kb"><b>H</b><span>hide interface</span></div>
       </div>
     </div>
+
+    <!-- Touch controls. Hidden on desktop, where the H key and the always-on
+         panels do the same job. -->
+    <div id="touch-controls">
+      <button id="drawer-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
+      <button id="ui-toggle" aria-label="Hide interface">◉</button>
+    </div>
+
+    <div id="drawer" class="closed" aria-hidden="true">
+      <div id="drawer-head">
+        <span>Planetarium</span>
+        <button id="drawer-close" aria-label="Close menu">✕</button>
+      </div>
+      <div id="drawer-inner"></div>
+    </div>
+    <div id="drawer-scrim" class="closed"></div>
 
     <div id="label-layer"></div>
 

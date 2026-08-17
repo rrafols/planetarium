@@ -170,11 +170,23 @@ Time runs at one of seven fixed rates — **real-time** (the default), 1 min/s,
 because those are the rates that are actually useful and a log slider is hard to
 land on any of them.
 
+### Phones and tablets
+
+Below ~820 px (or on any coarse-pointer device under 1180 px) the corner panels
+*move* into a slide-in drawer — one DOM move, so every control keeps the
+listeners it already had. Only the clock, the eclipse banner and the transport
+bar stay on screen. Two buttons sit top-right: **☰** opens the drawer, **◉**
+hides the interface entirely for an unobstructed view, and stays tappable so you
+can bring it back. The switch is reversible, so rotating a tablet restores the
+desktop layout.
+
 ### Smart TV
 
 TV mode is detected automatically from the user agent (Tizen, webOS, and
-others) and can be forced with `?tv=1` or toggled with `T`. It switches to a
-ten-foot UI and maps everything onto a remote:
+others). **To try it in a normal desktop browser, add `?tv=1` to the URL or
+press `T`** — the full ten-foot UI, menu and remote key mapping are all
+exercisable with a keyboard, since the arrow keys, Enter and Escape are the same
+codes a remote sends. It maps everything onto a remote:
 
 | Button | Action |
 | --- | --- |
