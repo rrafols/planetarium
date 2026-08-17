@@ -13,9 +13,22 @@ import {
 } from 'three';
 import { BODIES } from '../data/bodies.js';
 
-// Resolved against Vite's base URL so the app works both at a domain root and
-// at a project subpath such as /planetarium/ on GitHub Pages.
-const BASE = `${import.meta.env.BASE_URL}textures/`; // Vite guarantees a trailing slash
+/**
+ * Texture root, resolved against the document rather than a bundler constant.
+ *
+ * `import.meta.env` exists only after a Vite build, so using it would break the
+ * unbuilt source that the index.html import map otherwise makes runnable. The
+ * document's own base URI works in both cases, and handles a project subpath
+ * (/planetarium/ on GitHub Pages) as well as a domain root.
+ */
+const BUILT = typeof __BUILT__ !== 'undefined';
+
+/**
+ * Vite flattens `public/` into the site root at build time, so the same files
+ * live at different URLs depending on how the app is being served: `textures/`
+ * from a build, `public/textures/` from the raw source.
+ */
+const BASE = new URL(BUILT ? 'textures/' : 'public/textures/', document.baseURI).href;
 
 /** Maps that must not be colour-converted. */
 const DATA_MAPS = new Set(['earth_normal.jpg', 'earth_spec.jpg']);

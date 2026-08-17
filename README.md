@@ -29,12 +29,18 @@ host anywhere — it is entirely client-side, with no backend.
 Enable it once under **Settings → Pages → Source → GitHub Actions**; the site
 then appears at `https://<user>.github.io/planetarium/`.
 
-Note that the repository holds *source*, not a built site — `import 'three'` is
-a bare module specifier no browser can resolve, so pointing Pages at the repo
-root will not work. The workflow bundles it, and also downloads the high-res
-maps so the deployed site has them even though they are not committed. The
-build uses a relative base, so it works from a project subpath as well as a
-domain root.
+The workflow also downloads the high-res maps so the deployed site has them even
+though they are not committed, and the build uses a relative base, so it works
+from a project subpath as well as a domain root.
+
+**It also works unbuilt.** `import 'three'` is a bare module specifier that no
+browser can resolve, which is why serving a repository like this one raw
+normally fails with *"Failed to resolve module specifier"*. `index.html` carries
+an import map pointing three at a CDN, so the source runs as-is from any static
+host — including a branch-based Pages deployment. That path costs a CDN
+round-trip and ships ~50 unbundled modules, so the Actions build remains the
+better option; the build strips the import map, leaving production with no
+external references at all.
 
 The repository ships the 2048×1024 texture set (~8 MB). The optional
 8192×4096 maps (~49 MB) are not committed; fetch them with:

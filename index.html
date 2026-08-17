@@ -6,6 +6,28 @@
     <title>Planetarium — Solar System</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>" />
     <link rel="stylesheet" href="./src/ui/style.css" />
+
+    <!--
+      Fallback for running the source unbuilt.
+
+      `import ... from 'three'` is a bare specifier, which a browser cannot
+      resolve on its own — so serving this repository's files as-is (a
+      branch-based GitHub Pages deployment, or any plain static host) fails with
+      "Failed to resolve module specifier". This import map supplies the
+      mapping, letting the unbuilt source run directly from a static host.
+
+      The production bundle does not need it: Vite resolves and inlines three
+      at build time, so nothing in the built output requests a bare specifier
+      and this map is simply never consulted.
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.185.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.185.1/examples/jsm/"
+        }
+      }
+    </script>
   </head>
   <body>
     <canvas id="viewport"></canvas>
