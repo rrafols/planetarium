@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Planetarium — Solar System</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>" />
+    <link rel="stylesheet" href="./src/ui/style.css" />
+  </head>
+  <body>
+    <canvas id="viewport"></canvas>
+
+    <div id="loading">
+      <div class="load-inner">
+        <div class="load-title">PLANETARIUM</div>
+        <div class="load-bar"><i id="load-fill"></i></div>
+        <div class="load-note" id="load-note">loading textures…</div>
+      </div>
+    </div>
+
+    <!-- Top-left: clock -->
+    <div class="panel" id="clock-panel">
+      <div class="date" id="ui-date">—</div>
+      <div class="row"><span class="k">UTC</span><span class="v" id="ui-time">—</span></div>
+      <div class="row"><span class="k">Julian day</span><span class="v" id="ui-jd">—</span></div>
+      <div class="row"><span class="k">Rate</span><span class="v hi" id="ui-rate">—</span></div>
+    </div>
+
+    <!-- Top-right: focus target info -->
+    <div class="panel" id="info-panel">
+      <div class="hdr"><span id="ui-target">Sun</span><span class="badge" id="ui-target-kind">star</span></div>
+      <div class="row"><span class="k">Radius</span><span class="v" id="ui-radius">—</span></div>
+      <div class="row"><span class="k">Dist. from Sun</span><span class="v" id="ui-sundist">—</span></div>
+      <div class="row"><span class="k">Dist. from camera</span><span class="v" id="ui-camdist">—</span></div>
+      <div class="row"><span class="k">Rotation period</span><span class="v" id="ui-rot">—</span></div>
+      <div class="row"><span class="k">Orbital period</span><span class="v" id="ui-orb">—</span></div>
+      <div class="row"><span class="k">Axial tilt</span><span class="v" id="ui-tilt">—</span></div>
+    </div>
+
+    <!-- Left: body selector -->
+    <div class="panel" id="bodies-panel">
+      <div class="hdr">Focus <span class="hint">(click / 0-9)</span></div>
+      <div id="body-list"></div>
+    </div>
+
+    <!-- Bottom: time controls -->
+    <div class="panel" id="time-panel">
+      <div class="tbar">
+        <button id="btn-rev" title="Reverse time direction">◀◀</button>
+        <button id="btn-slower" title="Slower (,)">−</button>
+        <button id="btn-play" class="wide" title="Pause / resume (space)">❚❚</button>
+        <button id="btn-faster" title="Faster (.)">+</button>
+        <button id="btn-now" title="Jump to present (N)">NOW</button>
+      </div>
+      <input type="range" id="rate-slider" min="0" max="5" step="1" value="0" list="rate-ticks" />
+      <datalist id="rate-ticks"><option value="0"></option><option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option><option value="5"></option></datalist>
+      <div class="tlabels" id="rate-labels"></div>
+    </div>
+
+    <!-- Bottom-right: settings -->
+    <div class="panel" id="settings-panel">
+      <div class="hdr collapsible" id="settings-hdr">Settings <span class="chev">▾</span></div>
+      <div id="settings-body">
+        <label class="row ck"><input type="checkbox" id="opt-orbits" checked /><span>Orbit paths</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-labels" checked /><span>Labels</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-eclipse" checked /><span>Eclipse shadows</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-bloom" checked /><span>Sun bloom</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-stars" checked /><span>Milky Way</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-night" checked /><span>Earth city lights</span></label>
+        <label class="row ck"><input type="checkbox" id="opt-hires" /><span>High-res maps <span class="k">(47 MB)</span></span></label>
+        <div id="hires-status" class="hidden">
+          <div class="load-bar"><i id="hires-fill"></i></div>
+          <div class="warn" id="hires-note"></div>
+        </div>
+
+        <div class="row slider-row"><span class="k">Scale model</span></div>
+        <div class="seg">
+          <button id="scale-real" class="on">Realistic</button>
+          <button id="scale-schematic">Schematic</button>
+        </div>
+        <input type="range" id="schematic-slider" min="0" max="100" step="1" value="0" />
+
+        <div class="row slider-row">
+          <span class="k">Extra planet size ×<b id="ui-exag">1</b></span>
+        </div>
+        <input type="range" id="exag-slider" min="0" max="100" step="1" value="0" />
+        <div class="warn" id="exag-warn">True scale — eclipse geometry exact</div>
+
+        <div class="row slider-row"><span class="k">Camera mode</span></div>
+        <div class="seg">
+          <button id="mode-orbit" class="on">Orbit</button>
+          <button id="mode-fly">Free fly</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Eclipse HUD -->
+    <div id="eclipse-banner" class="hidden">
+      <div class="eb-title" id="eb-title">SOLAR ECLIPSE</div>
+      <div class="eb-sub" id="eb-sub"></div>
+    </div>
+
+    <div class="panel" id="eclipse-panel">
+      <div class="hdr">Eclipse finder</div>
+      <div class="ebtns">
+        <button id="find-solar">Next solar ▸</button>
+        <button id="find-lunar">Next lunar ▸</button>
+      </div>
+      <div class="ebtns">
+        <button id="find-solar-prev">◂ Prev solar</button>
+        <button id="find-lunar-prev">◂ Prev lunar</button>
+      </div>
+      <div class="efind" id="efind-status">Jumps time to the next real eclipse.</div>
+    </div>
+
+    <!-- Help -->
+    <div class="panel" id="help-panel">
+      <div class="hdr collapsible collapsed" id="help-hdr">Controls <span class="chev">▾</span></div>
+      <div id="help-body" style="display: none">
+        <div class="kb"><b>Drag</b><span>orbit / look</span></div>
+        <div class="kb"><b>Wheel</b><span>zoom to surface</span></div>
+        <div class="kb"><b>Click</b><span>focus a body</span></div>
+        <div class="kb"><b>W A S D</b><span>fly horizontally</span></div>
+        <div class="kb"><b>Q E</b><span>fly down / up</span></div>
+        <div class="kb"><b>Shift / Ctrl</b><span>boost / crawl</span></div>
+        <div class="kb"><b>Space</b><span>pause</span></div>
+        <div class="kb"><b>, .</b><span>slower / faster</span></div>
+        <div class="kb"><b>F</b><span>free-fly mode</span></div>
+        <div class="kb"><b>N</b><span>jump to now</span></div>
+        <div class="kb"><b>0 – 9</b><span>focus a planet</span></div>
+        <div class="kb"><b>H</b><span>hide interface</span></div>
+      </div>
+    </div>
+
+    <div id="label-layer"></div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

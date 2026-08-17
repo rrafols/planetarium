@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Optional 8k texture set (~49 MB) — fetch with scripts/fetch-textures.sh
+public/textures/hi/
+
+# Local dev scratch
+.smoke.mjs
+
+# Claude Code local session settings
+.claude/
