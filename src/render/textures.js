@@ -13,7 +13,9 @@ import {
 } from 'three';
 import { BODIES } from '../data/bodies.js';
 
-const BASE = 'textures/';
+// Resolved against Vite's base URL so the app works both at a domain root and
+// at a project subpath such as /planetarium/ on GitHub Pages.
+const BASE = `${import.meta.env.BASE_URL}textures/`; // Vite guarantees a trailing slash
 
 /** Maps that must not be colour-converted. */
 const DATA_MAPS = new Set(['earth_normal.jpg', 'earth_spec.jpg']);

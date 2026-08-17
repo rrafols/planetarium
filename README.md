@@ -23,6 +23,19 @@ npm run dev
 Then open the URL Vite prints. `npm run build` produces a static `dist/` you can
 host anywhere — it is entirely client-side, with no backend.
 
+### GitHub Pages
+
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`.
+Enable it once under **Settings → Pages → Source → GitHub Actions**; the site
+then appears at `https://<user>.github.io/planetarium/`.
+
+Note that the repository holds *source*, not a built site — `import 'three'` is
+a bare module specifier no browser can resolve, so pointing Pages at the repo
+root will not work. The workflow bundles it, and also downloads the high-res
+maps so the deployed site has them even though they are not committed. The
+build uses a relative base, so it works from a project subpath as well as a
+domain root.
+
 The repository ships the 2048×1024 texture set (~8 MB). The optional
 8192×4096 maps (~49 MB) are not committed; fetch them with:
 

@@ -1,0 +1,60 @@
+# Build the Vite bundle and publish it to GitHub Pages.
+#
+# The repository holds source, not a built site: `import 'three'` is a bare
+# module specifier that no browser can resolve on its own, so serving the repo
+# root directly cannot work. This builds it instead.
+#
+# One-time setup: repository Settings -> Pages -> Source = "GitHub Actions".
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The 8k maps are not in the repository (~49 MB). Fetch them so the
+      # deployed site has the high-res toggle; a failure here is not fatal,
+      # the app falls back to the committed 2k set.
+      - name: Fetch high-res textures
+        run: ./scripts/fetch-textures.sh || echo "high-res maps unavailable; using 2k set"
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
