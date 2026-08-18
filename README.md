@@ -214,7 +214,7 @@ up without touching distances.
 | --- | --- |
 | Drag | Orbit, or look around in free-fly |
 | Wheel | Zoom, exponentially — one notch feels the same 10 km above the Moon or 40 AU out |
-| Click a body | Focus it |
+| Click a body | Focus it — approached from its daylit side |
 | `0`–`9` | Jump to Sun, planets, Moon |
 | `W A S D` / `Q E` | Fly horizontally / down and up |
 | `Shift` / `Ctrl` | Boost / crawl |

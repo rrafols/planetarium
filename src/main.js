@@ -233,9 +233,33 @@ function pickAt(clientX, clientY) {
 
 /* --------------------------------------------------------------- handlers */
 
+const _framing = new Vector3();
+const _UP = new Vector3(0, 1, 0);
+
 function focusBody(key, animate = true) {
   const entry = builder.bodies.get(key);
   if (!entry) return;
+
+  /*
+   * Approach a newly-focused body from its daylit side.
+   *
+   * The rig otherwise keeps whatever orbital angle it was already at, which is
+   * as likely as not to be the unlit hemisphere. On a bright planet that still
+   * leaves a readable crescent; on something as dark as a comet nucleus
+   * (albedo ~0.04) the result is a body that renders as nothing at all. Offset
+   * off the Sun-body axis so the terminator stays in view rather than
+   * presenting a flat full phase.
+   */
+  if (key !== rig.focusKey && key !== 'sun') {
+    _framing.copy(builder.displayPos('sun')).sub(builder.displayPos(key));
+    if (_framing.lengthSq() > 1e-12) {
+      _framing.normalize().applyAxisAngle(_UP, MathUtils.degToRad(38));
+      _framing.y = 0.3;
+      rig.setOrbitDirection(_framing);
+    }
+  }
+
+  // After the angle, so focus() owns the fly-to transition.
   rig.focus(key, builder.displayPos(key), entry.drawRadius, animate);
   hud.setFocus(key);
   hud.setMode(rig.mode);
@@ -628,6 +652,7 @@ window.__planetarium = {
   scene: () => scene,
   cometFx: () => cometFx,
   exposure: () => exposure,
+  camera: () => camera,
   focus: (k) => focusBody(k, false),
   setJD: (jd) => { clock.jd = jd; system.update(jd); },
 };
