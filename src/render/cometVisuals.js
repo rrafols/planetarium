@@ -145,6 +145,8 @@ const _toCam = new Vector3();
 const _bx = new Vector3();
 const _bz = new Vector3();
 const _basis = new Matrix4();
+const _WORLD_UP = new Vector3(0, 1, 0);
+const _WORLD_X = new Vector3(1, 0, 0);
 
 export class CometVisuals {
   /**
@@ -185,6 +187,8 @@ export class CometVisuals {
    * @param {Vector3} ctx.sunPos origin-relative Sun position
    * @param {(key:string)=>number} ctx.trueDistanceAU real heliocentric distance
    * @param {number} ctx.exposure
+   * @param {(key:string, out:Vector3)=>Vector3} ctx.velocityDir unit direction
+   *   of travel, taken from the orbit rather than from frame differences
    * @param {(key:string)=>number} ctx.lengthScale displayed/true radial ratio,
    *   so the coma shrinks with the orbits in schematic mode
    */
@@ -211,11 +215,14 @@ export class CometVisuals {
       // Anti-sunward direction, in scene space.
       _sunDir.copy(pos).sub(ctx.sunPos).normalize();
 
-      // Velocity direction, from the last frame's position.
-      if (e.hasPrev) _vel.copy(pos).sub(e.prevPos);
-      else _vel.set(0, 0, 0);
-      e.prevPos.copy(pos);
-      e.hasPrev = true;
+      /*
+       * Direction of travel, taken analytically from the orbit rather than by
+       * differencing successive frames. At real-time rates a comet moves so
+       * little between frames that the difference underflows to zero, so the
+       * dust tail silently stopped lagging and sat exactly on the ion tail;
+       * at high time-lapse rates the same estimate turned noisy instead.
+       */
+      ctx.velocityDir(key, _vel);
 
       /*
        * Coma and tail are sized in AU, not as multiples of the nucleus.
@@ -236,16 +243,24 @@ export class CometVisuals {
       e.coma.material.uniforms.uIntensity.value = intensity(activity, ctx.exposure, 1.1);
 
       const tailLength = AU * (0.01 + 0.30 * activity) * sizeFactor * lengthScale;
-      const tailWidth = comaSize * 1.15;
 
-      this._orientTail(e.ion, _sunDir, tailLength, tailWidth,
+      /*
+       * Width is a fraction of length, not of the coma. Deriving it from the
+       * coma gave a 39:1 spike — the tail grows enormously toward perihelion
+       * while the coma barely does, so the two scales come apart. Real tails
+       * run roughly 5:1 to 10:1, the ion tail narrow and the dust tail broad.
+       */
+      const ionWidth = tailLength * 0.14;
+      const dustWidth = tailLength * 0.72 * 0.30;
+
+      this._orientTail(e.ion, _sunDir, tailLength, ionWidth,
         intensity(activity, ctx.exposure, 0.9), pos);
 
       // Dust lags toward the direction of travel; heavier grains keep more of
       // the comet's orbital momentum and fall behind the ion tail.
       _dir.copy(_sunDir);
-      if (_vel.lengthSq() > 0) _dir.addScaledVector(_vel.normalize(), -0.28).normalize();
-      this._orientTail(e.dust, _dir, tailLength * 0.72, tailWidth * 1.9,
+      if (_vel.lengthSq() > 0) _dir.addScaledVector(_vel, -0.32).normalize();
+      this._orientTail(e.dust, _dir, tailLength * 0.72, dustWidth,
         intensity(activity, ctx.exposure, 0.7), pos);
     }
   }
@@ -263,14 +278,31 @@ export class CometVisuals {
     _centre.copy(nucleusPos).addScaledVector(dir, length * 0.5);
     _toCam.copy(_centre).negate().normalize();
 
+    /*
+     * Build the billboard basis. It must stay orthonormal: makeBasis() only
+     * stuffs the vectors into columns, and setFromRotationMatrix() assumes an
+     * orthogonal matrix — so the old fallback of an arbitrary (1,0,0) when the
+     * cross product degenerated produced a skewed matrix and a rotation that
+     * silently threw the tail tens of degrees off the anti-sun line.
+     *
+     * The degenerate case is looking straight down the tail, where any axis
+     * perpendicular to `dir` is equally valid.
+     */
     _bx.crossVectors(dir, _toCam);
-    if (_bx.lengthSq() < 1e-12) _bx.set(1, 0, 0); // looking straight down the tail
+    if (_bx.lengthSq() < 1e-10) {
+      _bx.crossVectors(dir, _WORLD_UP);
+      if (_bx.lengthSq() < 1e-10) _bx.crossVectors(dir, _WORLD_X);
+    }
     _bx.normalize();
     _bz.crossVectors(_bx, dir).normalize();
     _basis.makeBasis(_bx, dir, _bz);
     mesh.quaternion.setFromRotationMatrix(_basis);
 
-    mesh.material.uniforms.uIntensity.value = intensityValue;
+    // Looking straight down the tail, a flat billboard degenerates into a
+    // sliver. Fade it out over the last few degrees and let the coma carry the
+    // head-on view instead.
+    const axial = Math.abs(dir.dot(_toCam));
+    mesh.material.uniforms.uIntensity.value = intensityValue * (1 - axial ** 6);
   }
 
   setVisible(v) {

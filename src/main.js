@@ -15,7 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { AU } from './core/constants.js';
-import { BODIES } from './data/bodies.js';
+import { BODIES, BY_KEY } from './data/bodies.js';
 import { SolarSystem } from './ephem/system.js';
 import { rotationPeriodDays, axialTilt } from './ephem/rotation.js';
 import { SATELLITE_PERIODS } from './ephem/satellites.js';
@@ -24,7 +24,7 @@ import { SceneBuilder } from './render/scene.js';
 import { Starfield } from './render/starfield.js';
 import { AsteroidBelt, MeteorStreams } from './render/particleField.js';
 import { CometVisuals } from './render/cometVisuals.js';
-import { COMETS } from './ephem/comets.js';
+import { COMETS, cometPosition, cometPeriod } from './ephem/comets.js';
 import { updateFrameUniforms, setFallbackRingMap } from './render/bodyMaterial.js';
 import { CameraRig } from './controls/cameraRig.js';
 import { Clock } from './sim/clock.js';
@@ -253,7 +253,11 @@ function focusBody(key, animate = true) {
   if (key !== rig.focusKey && key !== 'sun') {
     _framing.copy(builder.displayPos('sun')).sub(builder.displayPos(key));
     if (_framing.lengthSq() > 1e-12) {
-      _framing.normalize().applyAxisAngle(_UP, MathUtils.degToRad(38));
+      // A comet's tail points straight away from the Sun, so viewing one from
+      // the sunward side stares right down it. Stand nearly side-on instead:
+      // still a lit hemisphere, but with the tail sweeping across the frame.
+      const offset = BY_KEY[key]?.kind === 'comet' ? 78 : 38;
+      _framing.normalize().applyAxisAngle(_UP, MathUtils.degToRad(offset));
       _framing.y = 0.3;
       rig.setOrbitDirection(_framing);
     }
@@ -451,6 +455,26 @@ function poleProvider(key) {
  * drawn. In schematic mode the drawn orbits are compressed, and deriving
  * irradiance from them would over-light the inner planets by ~40x.
  */
+const _cv1 = { x: 0, y: 0, z: 0 };
+const _cv2 = { x: 0, y: 0, z: 0 };
+
+/**
+ * Unit direction of a comet's motion, from a central difference on its orbit.
+ * Independent of frame rate and of the simulation speed, unlike differencing
+ * successive rendered positions.
+ */
+function cometVelocityDir(key, out) {
+  const step = Math.max(cometPeriod(COMETS[key]) / 2000, 0.01);
+  cometPosition(key, clock.jd + step, _cv1);
+  cometPosition(key, clock.jd - step, _cv2);
+  // Ecliptic (x, y, z) -> scene axes (x, z, -y).
+  return out.set(
+    _cv1.x - _cv2.x,
+    _cv1.z - _cv2.z,
+    -(_cv1.y - _cv2.y),
+  ).normalize();
+}
+
 function irradianceFor(key) {
   const d = system.sunDistance(key);
   return (AU * AU) / Math.max(d * d, 1e-6);
@@ -617,6 +641,7 @@ function frame() {
     sunPos: _sunRel,
     trueDistanceAU: (k) => system.sunDistance(k) / AU,
     cameraQuaternion: camera.quaternion,
+    velocityDir: cometVelocityDir,
     exposure,
     // How much the view transform has compressed this comet's orbit; the coma
     // and tail follow the same compression so they stay proportionate.
