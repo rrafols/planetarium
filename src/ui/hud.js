@@ -87,6 +87,7 @@ export class Hud {
       'opt-eclipse': 'eclipse',
       'opt-bloom': 'bloom',
       'opt-stars': 'stars',
+      'opt-eclipse-markers': 'eclipseMarkers',
       'opt-belt': 'belt',
       'opt-streams': 'streams',
       'opt-comets': 'comets',

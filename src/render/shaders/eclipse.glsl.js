@@ -39,6 +39,8 @@ uniform int   uOccCount;
 uniform vec3  uOccPos[MAX_OCC];
 uniform float uOccRad[MAX_OCC];
 uniform float uEclipseOn;
+/** 0..1 fade for the annotation overlay: tint plus obscuration contours. */
+uniform float uEclipseMarkers;
 
 uniform float uHasRingShadow;
 uniform vec3  uRingCenter;

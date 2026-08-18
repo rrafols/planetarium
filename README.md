@@ -148,6 +148,32 @@ long shadows across craters, you get facet shading but no occlusion.
 The same `relief` field works for any body given a suitable DEM; Mercury and
 Mars have equivalent public altimetry.
 
+### Reading an eclipse
+
+A solar eclipse and the night side are both just "dark", and when a shadow
+passes near the terminator the two blur together. The shader already knows the
+difference — `sunVisibility()` computes obscuration entirely separately from
+the day/night term — so three things put that information back on screen:
+
+- **City lights follow the geometric night.** They used to be driven by *total*
+  illumination, which lit them inside the umbra too. Physically arguable, but it
+  was the strongest cue making an eclipse read as nightfall.
+- **Obscuration contours** at 25 / 50 / 75 / 100 %, drawn only on the daylit
+  side and given constant on-screen width via screen-space derivatives, plus a
+  cool tint that separates "sunlight blocked" from the warm falloff of sunset.
+  The terminator has no contours, so the two can no longer be confused. The
+  rings also show something people underestimate: the penumbra is thousands of
+  kilometres across, so most of the daylit hemisphere sees *something*.
+- **The path of totality**, drawn on the ground. The track is built in
+  Earth-fixed coordinates and parented to the planet's orientation node, so it
+  turns with the surface and stays pinned to the geography it crosses. It is
+  drawn at the true umbra width, found by stepping sideways from the centre line
+  until totality is lost, so a broad slow track and a narrow grazing one look
+  different because they are.
+
+These are annotations rather than physics, so they sit on their own toggle and
+the unannotated view stays honest.
+
 ### The asteroid belt
 
 40,000 particles, each carrying its own orbital elements and propagated in the

@@ -24,6 +24,7 @@ import { SceneBuilder } from './render/scene.js';
 import { Starfield } from './render/starfield.js';
 import { AsteroidBelt, MeteorStreams } from './render/particleField.js';
 import { CometVisuals } from './render/cometVisuals.js';
+import { EclipsePath } from './render/eclipsePath.js';
 import { COMETS, cometPosition, cometPeriod } from './ephem/comets.js';
 import { updateFrameUniforms, setFallbackRingMap } from './render/bodyMaterial.js';
 import { CameraRig } from './controls/cameraRig.js';
@@ -79,6 +80,7 @@ let starfield = null;
 let belt = null;
 let streams = null;
 let cometFx = null;
+let eclipsePath = null;
 let labels = null;
 let hud = null;
 
@@ -97,7 +99,7 @@ const quality = {
 
 const options = {
   orbits: true, labels: true, eclipse: true, bloom: true, stars: true, night: true,
-  belt: true, streams: true, comets: true,
+  belt: true, streams: true, comets: true, eclipseMarkers: true,
 };
 
 let exposure = 1;
@@ -128,6 +130,7 @@ async function boot() {
   belt = new AsteroidBelt(scene, quality.beltCount);
   streams = new MeteorStreams(scene, quality.streamCount);
   cometFx = new CometVisuals(scene, Object.keys(COMETS));
+  eclipsePath = new EclipsePath();
   labels = new Labels(document.getElementById('label-layer'));
   labels.onSelect((key) => focusBody(key));
 
@@ -560,6 +563,7 @@ function updateExposure(dt) {
 }
 
 let eclipseCheckAccum = 0;
+let lastSolar = null;
 
 function updateEclipseBanner(dt) {
   eclipseCheckAccum += dt;
@@ -567,6 +571,8 @@ function updateEclipseBanner(dt) {
   eclipseCheckAccum = 0;
 
   const solar = solarEclipse(system);
+  // Cached for the ground-track builder, which should not pay for its own search.
+  lastSolar = solar;
   if (solar.active) {
     hud.setEclipseBanner({
       kind: 'solar',
@@ -676,6 +682,7 @@ function frame() {
     sunPos: _sunRel.copy(builder.displayPos('sun')).sub(builder.origin),
     sunRadius: builder.drawRadius('sun'),
     eclipsesOn: options.eclipse,
+    eclipseMarkers: options.eclipseMarkers ? 1 : 0,
     occludersFor: occluderProvider,
     poleFor: poleProvider,
     irradianceFor,
@@ -684,6 +691,11 @@ function frame() {
 
   tv.update(dt);
   tv.tick();
+
+  // Only worth searching when an eclipse is actually near; solarEclipse() is
+  // cheap and already evaluated for the banner.
+  eclipsePath.update(clock.jd, builder.bodies.get('earth'),
+    options.eclipseMarkers && lastSolar && lastSolar.active);
 
   updateRelief();
 
@@ -741,6 +753,7 @@ window.__planetarium = {
   scene: () => scene,
   camera: () => camera,
   cometFx: () => cometFx,
+  eclipsePath: () => eclipsePath,
   exposure: () => exposure,
   // actions
   focus: (key) => focusBody(key, false),

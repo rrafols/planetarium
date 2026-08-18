@@ -69,6 +69,7 @@ function baseUniforms() {
     uOccPos: { value: occPos },
     uOccRad: { value: occRad },
     uEclipseOn: { value: 1 },
+    uEclipseMarkers: { value: 0 },
     uHasRingShadow: { value: 0 },
     uRingCenter: { value: new Vector3() },
     uRingNormal: { value: new Vector3(0, 1, 0) },
@@ -202,11 +203,51 @@ void main() {
 #endif
 
 #ifdef USE_NIGHTMAP
-  // City lights fade in as total illumination drops, so the umbra of a solar
-  // eclipse lights up as a dark patch with cities showing through.
-  float darkness = 1.0 - smoothstep(0.0, 0.12, diffuse * vis);
+  /*
+   * City lights follow the *geometric* night, not total illumination.
+   *
+   * Driving them from diffuse * vis also lit them inside a solar eclipse,
+   * which was a nice touch in isolation but made the umbra read as a patch of
+   * night — the single strongest cue confusing the two whenever a shadow
+   * crossed near the terminator. Night is now night, and the eclipse is
+   * distinguished by tint and contours instead.
+   */
+  float darkness = 1.0 - smoothstep(0.0, 0.12, diffuse);
   vec3 lights = texture2D(uNightMap, vUv).rgb;
   color += lights * lights * uNightStrength * darkness;
+#endif
+
+#ifdef USE_ECLIPSE_MARKERS
+  /*
+   * Make an eclipse legible as an eclipse.
+   *
+   * The shader already knows how much of the Sun each point can see, entirely
+   * separately from whether it is day or night there — but multiplying the two
+   * into one colour throws that distinction away, leaving a shadow that looks
+   * like dusk. These markers put it back, and only on the daylit side, where
+   * an eclipse means anything.
+   *
+   * Contours are drawn at fixed obscuration levels using screen-space
+   * derivatives, so they hold a constant width on screen at any zoom. The
+   * terminator has no contours, so the two can no longer be mistaken.
+   */
+  if (uEclipseMarkers > 0.001 && ndl > 0.0) {
+    float cov = clamp(1.0 - vis, 0.0, 1.0);
+    if (cov > 0.002) {
+      // Cool tint, so the shadow reads as daylight-being-blocked rather than
+      // as the warm falloff of sunset.
+      color = mix(color, color * vec3(0.55, 0.72, 1.05), cov * 0.55 * uEclipseMarkers);
+
+      float aa = max(fwidth(cov), 1e-5);
+      float ring = 0.0;
+      // Partial contours, then the umbra edge picked out more brightly.
+      ring = max(ring, (1.0 - smoothstep(0.0, aa * 1.5, abs(cov - 0.25))) * 0.30);
+      ring = max(ring, (1.0 - smoothstep(0.0, aa * 1.5, abs(cov - 0.50))) * 0.45);
+      ring = max(ring, (1.0 - smoothstep(0.0, aa * 1.5, abs(cov - 0.75))) * 0.60);
+      ring = max(ring, (1.0 - smoothstep(0.0, aa * 2.0, abs(cov - 0.995))) * 1.00);
+      color += vec3(1.0, 0.82, 0.45) * ring * uEclipseMarkers * uIrradiance * 2.2;
+    }
+  }
 #endif
 
   // Ambient is a stand-in for the little light that is not direct sunlight, and
@@ -259,6 +300,11 @@ export function createSurfaceMaterial(def, tex, opts = {}) {
     uniforms.uNightMap = { value: tex.nightMap };
     uniforms.uNightStrength = { value: 1.4 };
   }
+  // Only real surfaces get the overlay; clouds and atmospheres would double it.
+  if (def.kind === 'planet' || def.kind === 'moon' || def.kind === 'dwarf') {
+    defines.USE_ECLIPSE_MARKERS = '';
+  }
+
   if (tex.normalMap || def.relief) {
     defines.USE_NORMALMAP = '';
     // A body whose relief arrives later still compiles with the path enabled,
@@ -552,6 +598,7 @@ export function updateFrameUniforms(ctx) {
     u.uSunPos.value.copy(ctx.sunPos);
     u.uSunRadius.value = ctx.sunRadius;
     u.uEclipseOn.value = ctx.eclipsesOn ? 1 : 0;
+    if (u.uEclipseMarkers) u.uEclipseMarkers.value = ctx.eclipseMarkers ?? 0;
 
     if (u.uIrradiance) u.uIrradiance.value = ctx.irradianceFor(entry.bodyKey);
 
