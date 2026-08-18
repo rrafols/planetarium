@@ -161,6 +161,11 @@ are two: a straight blue ion tail lying anti-sunward, and a broader, warmer
 dust tail that lags toward the direction of travel, because heavier grains keep
 more of the comet's orbital momentum.
 
+A comet far from the Sun is *supposed* to be hard to see: the nucleus is a few
+km of albedo-0.04 dirt under sunlight a thousand times weaker than Earth's.
+Focus Halley today, near aphelion at 35 AU, and you get a dim lit crescent, not
+a spectacle. Jump to its 1986 perihelion and it fills the view.
+
 **Meteor showers are not comets.** A shower is what happens when Earth crosses
 the debris a comet has strung along its orbit, which is why it recurs on the
 same calendar date every year. Each stream here is generated from its parent's
@@ -316,6 +321,14 @@ runs with `logarithmicDepthBuffer`, which three.js implements *inside the
 material* — so the hand-written shaders here include three.js's `logdepthbuf_*`
 chunks. Omitting them lets a sphere z-fight against its own far side, and you
 see the back of the planet through the front.
+
+Auto-exposure applies full inverse-square compensation across the whole system,
+from ~0.15 at Mercury to ~1230 at Pluto — a camera opening up as the light
+falls off. It has to span that range: clamping it lower leaves the outer system
+badly underexposed. Bloom is unaffected, because UnrealBloomPass runs on the
+linear HDR buffer before OutputPass applies exposure. The sky and the particle
+fields are dimmed by the reciprocal so they hold a constant apparent brightness
+as the stop changes.
 
 Lighting is a hand-written PBR-ish path rather than `MeshStandardMaterial`:
 there is exactly one light in the scene, and the direct-lighting term needs to

@@ -288,14 +288,21 @@ function angleFrom(nx, ny, nz, lonDeg, latDeg) {
 }
 
 Object.assign(RECIPES, {
-  /** Cometary nucleus: among the darkest surfaces in the solar system. */
+  /**
+   * Cometary nucleus: among the darkest surfaces in the solar system, but not
+   * as dark as this map first made it. These values decode to a mean linear
+   * reflectance of about 0.04, matching the measured geometric albedo of a
+   * comet nucleus; the earlier ramp implied 0.023, roughly half of real, which
+   * combined with the outer solar system's feeble sunlight rendered the
+   * nucleus as literal black.
+   */
   comet: (nx, ny, nz) => {
     const base = fbm(nx * 4.5, ny * 4.5, nz * 4.5, 5);
     const fine = fbm(nx * 17, ny * 17, nz * 17, 3);
     return ramp([
-      [0.0, [16, 14, 13]],
-      [0.5, [34, 30, 27]],
-      [1.0, [62, 56, 50]],
+      [0.0, [30, 27, 25]],
+      [0.5, [55, 49, 44]],
+      [1.0, [82, 74, 66]],
     ], base * 0.6 + fine * 0.3);
   },
 

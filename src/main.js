@@ -445,11 +445,18 @@ function updateExposure(dt) {
   const focusPos = system.pos(rig.focusKey);
   const lit = rig.focusKey === 'sun' ? rig.position.length() : focusPos.length();
   const dAU = Math.max(lit, AU * 0.2) / AU;
-  const target = MathUtils.clamp(dAU * dAU, 0.22, 60);
+  // Full inverse-square compensation. The ceiling has to reach the outer
+  // system: Pluto at 35 AU needs ~1200, and clamping at 60 left everything out
+  // there ~20x underexposed — enough that a cometary nucleus, whose albedo is
+  // genuinely about 0.04, fell to literal black.
+  //
+  // Raising it is safe for bloom: UnrealBloomPass runs on the linear HDR buffer
+  // *before* OutputPass applies exposure, so the threshold is unaffected.
+  const target = MathUtils.clamp(dAU * dAU, 0.15, 1600);
   const k = 1 - Math.exp(-dt * 1.6);
   exposure = Math.exp(Math.log(exposure) + (Math.log(target) - Math.log(exposure)) * k);
   renderer.toneMappingExposure = exposure;
-  starfield.setBrightness(MathUtils.clamp(1.7 / exposure, 0.05, 1.6));
+  starfield.setBrightness(MathUtils.clamp(1.7 / exposure, 0.0005, 1.6));
 }
 
 let eclipseCheckAccum = 0;
@@ -620,5 +627,7 @@ window.__planetarium = {
   builder: () => builder,
   scene: () => scene,
   cometFx: () => cometFx,
+  exposure: () => exposure,
+  focus: (k) => focusBody(k, false),
   setJD: (jd) => { clock.jd = jd; system.update(jd); },
 };
