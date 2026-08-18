@@ -12,6 +12,7 @@
  *   'kepler'     Keplerian in the parent's equatorial plane (approximate phase)
  *   'minor'      fixed osculating elements at J2000 (Ceres)
  *   'pluto'      Pluto system barycentre, then split with Charon
+ *   'comet'      osculating elements about a perihelion passage
  *
  * `tidal: true` marks a synchronous rotator with no IAU rotation entry; its
  * orientation is derived so the same hemisphere always faces its planet.
@@ -179,6 +180,30 @@ export const BODIES = [
   {
     key: 'charon', name: 'Charon', kind: 'moon', ephem: 'kepler', parent: 'pluto',
     radius: 606.0, color: 0x9a938c, procedural: 'charon', roughness: 0.95, tidal: true,
+  },
+  {
+    key: 'halley', name: '1P/Halley', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 5.5, color: 0x9fd8ff, procedural: 'comet', roughness: 1.0,
+  },
+  {
+    key: 'encke', name: '2P/Encke', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 2.4, color: 0xffc39a, procedural: 'comet', roughness: 1.0,
+  },
+  {
+    key: 'swiftTuttle', name: '109P/Swift-Tuttle', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 13.0, color: 0x9fd0ff, procedural: 'comet', roughness: 1.0,
+  },
+  {
+    key: 'tempelTuttle', name: '55P/Tempel-Tuttle', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 1.8, color: 0xffd9a0, procedural: 'comet', roughness: 1.0,
+  },
+  {
+    key: 'churyumov', name: '67P/Churyumov', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 1.65, color: 0xb9b0a4, procedural: 'comet', roughness: 1.0,
+  },
+  {
+    key: 'haleBopp', name: 'C/1995 O1 Hale-Bopp', kind: 'comet', ephem: 'comet', parent: 'sun',
+    radius: 30.0, color: 0xc9b6ff, procedural: 'comet', roughness: 1.0,
   },
 ];
 

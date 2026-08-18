@@ -36,6 +36,7 @@ import {
 import { proceduralTexture } from './proceduralTextures.js';
 import { planetPosition, minorBodyPosition, minorBodyPeriod } from '../ephem/planets.js';
 import { SATELLITE_PERIODS } from '../ephem/satellites.js';
+import { COMETS, cometPeriod, cometPosition } from '../ephem/comets.js';
 import { ViewTransform } from '../view/transform.js';
 
 const AIRLESS = new Set(['moon', 'mercury', 'io', 'europa', 'ganymede', 'callisto']);
@@ -335,7 +336,22 @@ export class SceneBuilder {
     const n = orbit.segments;
     const p = new Vector3();
 
-    if (HELIOCENTRIC.has(def.ephem)) {
+    if (def.ephem === 'comet') {
+      // Uniform steps in eccentric anomaly, so the sharp perihelion turn gets
+      // as many vertices as the long slow arc out near aphelion.
+      const period = cometPeriod(COMETS[key]);
+      const tp = COMETS[key].tp;
+      const tmp = { x: 0, y: 0, z: 0 };
+      for (let i = 0; i < n; i++) {
+        const E = (i / n) * Math.PI * 2;
+        // Kepler's equation, forward: M from E costs nothing.
+        const M = E - COMETS[key].e * Math.sin(E);
+        cometPosition(key, tp + (M / (Math.PI * 2)) * period, tmp);
+        p.set(tmp.x, tmp.z, -tmp.y).multiplyScalar(AU_KM * KM);
+        this.view.mapHeliocentric(p, p);
+        arr[i * 3] = p.x; arr[i * 3 + 1] = p.y; arr[i * 3 + 2] = p.z;
+      }
+    } else if (HELIOCENTRIC.has(def.ephem)) {
       const minor = def.ephem === 'minor';
       const ephemKey = def.ephem === 'earth' ? 'emb' : key;
       const periodDays = minor ? minorBodyPeriod(key) : (360 / RATES[ephemKey]) * 36525;
@@ -435,7 +451,7 @@ const _ringCenter = new Vector3();
 const _ringNormal = new Vector3();
 
 /** Ephemeris types whose orbit is drawn about the Sun rather than a planet. */
-const HELIOCENTRIC = new Set(['planet', 'earth', 'minor', 'pluto']);
+const HELIOCENTRIC = new Set(['planet', 'earth', 'minor', 'pluto', 'comet']);
 
 const SAT_PERIOD = SATELLITE_PERIODS;
 

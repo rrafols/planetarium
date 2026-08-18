@@ -61,16 +61,24 @@ Without them the app runs fine — the **High-res maps** toggle simply keeps the
 | Planet positions | JPL/Standish Keplerian elements with secular rates (1800–2050 set) |
 | The Moon | Meeus *Astronomical Algorithms* ch. 47 — truncated ELP-2000/82, 60 + 60 periodic terms, ~10″ accuracy |
 | Galilean moons | Meeus ch. 44, low-accuracy method |
+| Pluto | Standish's 3000 BC - 3000 AD element set, the only one covering it |
+| Ceres | fixed osculating elements at J2000 |
+| Comets | published osculating elements about a stated perihelion passage |
 | 15 other moons | Keplerian in the parent's equatorial plane; measured a, e, i and period, approximate epoch phase |
 | Earth's rotation | Driven by UT1 via a Delta-T model, not TT — see below |
 | Axial tilts & rotation | IAU/IAG Working Group rotational elements (Archinal et al. 2015) |
 | Earth/Moon split | Both bodies orbit their common barycentre, not each other |
 | Frame | J2000 mean ecliptic throughout; the lunar series is precessed back from equinox-of-date so it stays consistent |
 
-**29 bodies**: the Sun, eight planets and twenty moons — our Moon, the four
+**38 bodies**: the Sun, eight planets, Pluto and Ceres, twenty-one moons, and
+six comets — our Moon, the four
 Galileans, Phobos and Deimos, seven of Saturn's (Mimas, Enceladus, Tethys,
-Dione, Rhea, Titan, Iapetus), the five major Uranian moons, and Triton, whose
-157° inclination makes it orbit backwards.
+Dione, Rhea, Titan, Iapetus), the five major Uranian moons, Triton — whose 157°
+inclination makes it orbit backwards — and Charon.
+
+Pluto and Charon are a genuine binary: Charon holds about an eighth of the
+system mass, so the barycentre sits ~2100 km *above* Pluto's surface and the
+pair visibly circle a point in empty space rather than Charon circling Pluto.
 
 Sidereal rotation periods, oblateness of the gas giants, retrograde spin of
 Venus and Uranus, tidal locking of the moons, and the inclination of each moon
@@ -115,6 +123,56 @@ rotational elements are tabulated against TDB, and using them directly leaves
 the geography rotated by Delta-T — currently ~69 s, or 0.29° of longitude, about
 32 km at the equator, which is a serious fraction of a 100-270 km umbra. See
 `src/core/deltat.js`.
+
+### The asteroid belt
+
+40,000 particles, each carrying its own orbital elements and propagated in the
+vertex shader — one draw call, no per-frame CPU work. Semi-major axes are
+rejection-sampled against the **Kirkwood gaps**, the resonances with Jupiter at
+2.50 (3:1), 2.82 (5:2), 2.95 (7:3) and 3.27 AU (2:1) where repeated tugs pump
+eccentricity until an asteroid is thrown out. Eccentricities and inclinations
+follow Rayleigh distributions, so the belt comes out as a gapped *torus* rather
+than the flat uniform ring it is usually drawn as.
+
+### Comets and meteor showers
+
+Six comets, chosen for what they demonstrate rather than for fame alone:
+
+| Comet | Period | Why |
+| --- | --- | --- |
+| 1P/Halley | 75.3 yr | The famous one, and **retrograde** (i = 162°) |
+| 2P/Encke | 3.3 yr | Shortest known period — you can watch it go round |
+| 109P/Swift-Tuttle | 133 yr | Parent of the **Perseids** |
+| 55P/Tempel-Tuttle | 33.2 yr | Parent of the **Leonids**, also retrograde |
+| 67P/Churyumov-Gerasimenko | 6.4 yr | Rosetta's target |
+| C/1995 O1 (Hale-Bopp) | ~2550 yr | Near-polar orbit, i = 89.4° |
+
+Comets are given by perihelion distance and time of perihelion rather than by
+semi-major axis and mean longitude, because that is how they are catalogued —
+and because for a near-parabolic orbit like Hale-Bopp's, `a` is enormous and
+poorly constrained while `q` is measured precisely.
+
+The coma and tail are a *response to sunlight*, not fixed features. Each
+nucleus is inert beyond about 3.2 AU and switches on as it falls inward, so
+both grow steeply toward perihelion and vanish again on the way out. The tail
+points **away from the Sun**, not backwards along the track, so on the outbound
+leg a comet travels tail-first — the detail most depictions get wrong. There
+are two: a straight blue ion tail lying anti-sunward, and a broader, warmer
+dust tail that lags toward the direction of travel, because heavier grains keep
+more of the comet's orbital momentum.
+
+**Meteor showers are not comets.** A shower is what happens when Earth crosses
+the debris a comet has strung along its orbit, which is why it recurs on the
+same calendar date every year. Each stream here is generated from its parent's
+elements with the debris spread right around the orbit and slightly dispersed —
+so you can watch Earth plough through the Perseids in mid-August.
+
+| Shower | Parent | Peak |
+| --- | --- | --- |
+| Perseids | 109P/Swift-Tuttle | ~12 Aug |
+| Leonids | 55P/Tempel-Tuttle | ~17 Nov |
+| Orionids | 1P/Halley | ~21 Oct |
+| Taurids | 2P/Encke | ~5 Nov |
 
 ---
 
@@ -277,6 +335,13 @@ write linear HDR; tone mapping and sRGB happen once, in `OutputPass`.
   Galileans and our Moon come from real theories and are properly phased.
 - Delta-T is not predictable far from the present; values outside roughly
   1900-2150 are extrapolations.
+- Comet elements are single-epoch two-body fits. Real comets are perturbed by
+  the giant planets and pushed around by outgassing near perihelion (Encke is
+  the classic case). Orbit shape, orientation, period and the reference
+  perihelion date are sound; position many revolutions away is indicative.
+- Ceres' mean anomaly at epoch is approximate, as with the Keplerian moons.
+- The belt and the meteoroid streams are statistical populations, not
+  catalogues of real numbered objects.
 - Perturbation-level effects (nutation, planetary perturbations on the Moon
   beyond the truncated series, light-time) are not modelled.
 - In schematic mode, only orbital *directions* remain physical.

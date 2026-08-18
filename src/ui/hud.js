@@ -88,6 +88,8 @@ export class Hud {
       'opt-bloom': 'bloom',
       'opt-stars': 'stars',
       'opt-belt': 'belt',
+      'opt-streams': 'streams',
+      'opt-comets': 'comets',
       'opt-night': 'night',
       'opt-hires': 'hires',
     };

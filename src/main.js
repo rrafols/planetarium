@@ -22,7 +22,9 @@ import { SATELLITE_PERIODS } from './ephem/satellites.js';
 import { loadTextures, loadStreaming } from './render/textures.js';
 import { SceneBuilder } from './render/scene.js';
 import { Starfield } from './render/starfield.js';
-import { AsteroidBelt } from './render/asteroidBelt.js';
+import { AsteroidBelt, MeteorStreams } from './render/particleField.js';
+import { CometVisuals } from './render/cometVisuals.js';
+import { COMETS } from './ephem/comets.js';
 import { updateFrameUniforms, setFallbackRingMap } from './render/bodyMaterial.js';
 import { CameraRig } from './controls/cameraRig.js';
 import { Clock } from './sim/clock.js';
@@ -75,6 +77,8 @@ const raycaster = new Raycaster();
 let builder = null;
 let starfield = null;
 let belt = null;
+let streams = null;
+let cometFx = null;
 let labels = null;
 let hud = null;
 
@@ -86,11 +90,14 @@ const quality = {
   beltCount: looksLikeTV() ? 9000
     : matchMedia('(pointer: coarse)').matches ? 14000
       : 40000,
+  streamCount: looksLikeTV() ? 900
+    : matchMedia('(pointer: coarse)').matches ? 1500
+      : 3500,
 };
 
 const options = {
   orbits: true, labels: true, eclipse: true, bloom: true, stars: true, night: true,
-  belt: true,
+  belt: true, streams: true, comets: true,
 };
 
 let exposure = 1;
@@ -119,6 +126,8 @@ async function boot() {
   setFallbackRingMap(textures['saturn_ring.png']);
   starfield = new Starfield(scene, textures['stars_2k.jpg']);
   belt = new AsteroidBelt(scene, quality.beltCount);
+  streams = new MeteorStreams(scene, quality.streamCount);
+  cometFx = new CometVisuals(scene, Object.keys(COMETS));
   labels = new Labels(document.getElementById('label-layer'));
   labels.onSelect((key) => focusBody(key));
 
@@ -291,6 +300,8 @@ const handlers = {
     if (name === 'labels') labels.setVisible(value);
     if (name === 'stars') starfield.setVisible(value);
     if (name === 'belt') belt.setVisible(value);
+    if (name === 'streams') streams.setVisible(value);
+    if (name === 'comets') cometFx.setVisible(value);
     if (name === 'bloom') bloomPass.enabled = value;
     if (name === 'night') {
       const m = builder.bodies.get('earth').material;
@@ -569,6 +580,19 @@ function frame() {
 
   updateExposure(dt);
   belt.update(clock.jd, builder.origin, view.blend, exposure);
+  streams.update(clock.jd, builder.origin, view.blend, exposure);
+  cometFx.update({
+    displayPos: (k) => builder.displayPos(k).clone().sub(builder.origin),
+    sunPos: _sunRel,
+    trueDistanceAU: (k) => system.sunDistance(k) / AU,
+    exposure,
+    // How much the view transform has compressed this comet's orbit; the coma
+    // and tail follow the same compression so they stay proportionate.
+    lengthScale: (k) => {
+      const trueR = system.sunDistance(k);
+      return trueR > 1e-6 ? builder.displayPos(k).length() / trueR : 1;
+    },
+  });
   updateEclipseBanner(dt);
   updateInfoPanel(dt);
 
@@ -591,4 +615,10 @@ boot().catch((err) => {
 });
 
 // Exposed for the high-res toggle, which is wired up lazily.
-window.__planetarium = { ensureHiRes, system, rig, builder: () => builder };
+window.__planetarium = {
+  ensureHiRes, system, rig,
+  builder: () => builder,
+  scene: () => scene,
+  cometFx: () => cometFx,
+  setJD: (jd) => { clock.jd = jd; system.update(jd); },
+};

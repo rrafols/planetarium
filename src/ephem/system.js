@@ -17,6 +17,7 @@ import { moonPosition } from './moon.js';
 import { galileanPositions, keplerianMoonPosition, keplerianMoonPeriod,
   CHARON_MASS_FRACTION } from './satellites.js';
 import { bodyOrientation, bodyPole, HAS_ROTATION } from './rotation.js';
+import { cometPosition, cometPeriod, COMETS } from './comets.js';
 
 export const ECL_TO_SCENE = new Matrix4().makeRotationX(-Math.PI / 2);
 
@@ -104,6 +105,13 @@ export class SolarSystem {
       this._setEcliptic(b.key, _ecl.x * AU_KM * KM, _ecl.y * AU_KM * KM, _ecl.z * AU_KM * KM);
     }
 
+    // --- Comets -------------------------------------------------------------
+    for (const b of BODIES) {
+      if (b.ephem !== 'comet') continue;
+      cometPosition(b.key, jd, _ecl);
+      this._setEcliptic(b.key, _ecl.x * AU_KM * KM, _ecl.y * AU_KM * KM, _ecl.z * AU_KM * KM);
+    }
+
     // --- Pluto and Charon about their common barycentre ---------------------
     // Charon carries about 12% of the system mass, so the barycentre lies some
     // 2100 km above Pluto's surface: unlike every other planet-moon pair, Pluto
@@ -178,6 +186,7 @@ export class SolarSystem {
     if (b.ephem === 'planet' || b.ephem === 'pluto') return orbitalPeriodDays(b.key);
     if (b.key === 'earth') return orbitalPeriodDays('emb');
     if (b.ephem === 'minor') return minorBodyPeriod(b.key);
+    if (b.ephem === 'comet') return cometPeriod(COMETS[b.key]);
     return keplerianMoonPeriod(b.key);
   }
 }

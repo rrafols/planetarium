@@ -288,6 +288,17 @@ function angleFrom(nx, ny, nz, lonDeg, latDeg) {
 }
 
 Object.assign(RECIPES, {
+  /** Cometary nucleus: among the darkest surfaces in the solar system. */
+  comet: (nx, ny, nz) => {
+    const base = fbm(nx * 4.5, ny * 4.5, nz * 4.5, 5);
+    const fine = fbm(nx * 17, ny * 17, nz * 17, 3);
+    return ramp([
+      [0.0, [16, 14, 13]],
+      [0.5, [34, 30, 27]],
+      [1.0, [62, 56, 50]],
+    ], base * 0.6 + fine * 0.3);
+  },
+
   /**
    * Pluto. Two features carry the whole identity: Tombaugh Regio, the bright
    * nitrogen-ice plain, and the dark equatorial band of tholins beside it.
@@ -344,7 +355,7 @@ const CRATER_COUNTS = {
   mimas: 420, enceladus: 60, tethys: 380, dione: 340, rhea: 520, iapetus: 460,
   miranda: 300, ariel: 220, umbriel: 500, titania: 300, oberon: 420,
   triton: 40,
-  pluto: 30, charon: 340,
+  pluto: 30, charon: 340, comet: 120,
 };
 
 function drawCraters(ctx, kind, seed, W, H) {
