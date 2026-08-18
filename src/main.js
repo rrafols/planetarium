@@ -6,7 +6,7 @@
  */
 
 import {
-  WebGLRenderer, Scene, PerspectiveCamera, Raycaster, Vector2, Vector3,
+  WebGLRenderer, Scene, PerspectiveCamera, Raycaster, Vector2, Vector3, Quaternion,
   ACESFilmicToneMapping, SRGBColorSpace, MathUtils,
 } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -745,7 +745,8 @@ window.__planetarium = {
   // actions
   focus: (key) => focusBody(key, false),
   setJD: (jd) => { clock.jd = jd; system.update(jd); },
+  utcOf: () => clock.toDate().toISOString(),
   ensureHiRes,
   // re-exported so test code can build vectors in the page context
-  THREE: { Vector3 },
+  THREE: { Vector3, Quaternion },
 };
