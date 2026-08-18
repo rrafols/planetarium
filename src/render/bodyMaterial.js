@@ -12,7 +12,8 @@
  */
 
 import {
-  ShaderMaterial, Vector3, Color, DoubleSide, BackSide, AdditiveBlending, NormalBlending,
+  ShaderMaterial, Vector3, Color, DoubleSide, BackSide, AdditiveBlending,
+  NormalBlending, DataTexture, RGBAFormat,
 } from 'three';
 import { MAX_OCCLUDERS, AU } from '../core/constants.js';
 import { ECLIPSE_COMMON, SPECULAR_GLSL } from './shaders/eclipse.glsl.js';
@@ -39,6 +40,16 @@ const LOGDEPTH_PARS_VERT = '#include <common>\n#include <logdepthbuf_pars_vertex
 const LOGDEPTH_VERT = '#include <logdepthbuf_vertex>';
 const LOGDEPTH_PARS_FRAG = '#include <common>\n#include <logdepthbuf_pars_fragment>';
 const LOGDEPTH_FRAG = '#include <logdepthbuf_fragment>';
+
+/** 1x1 straight-up normal, standing in until a real map is fetched. */
+let _flatNormal = null;
+function flatNormalTexture() {
+  if (!_flatNormal) {
+    _flatNormal = new DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, RGBAFormat);
+    _flatNormal.needsUpdate = true;
+  }
+  return _flatNormal;
+}
 
 function baseUniforms() {
   const occPos = [];
@@ -111,6 +122,10 @@ uniform float uNightStrength;
 #ifdef USE_NORMALMAP
 uniform sampler2D uNormalMap;
 uniform float uNormalScale;
+// Runtime 0..1 fade. Kept as a uniform rather than a second #define so that
+// easing the relief in by distance never triggers a shader recompile, which
+// would hitch exactly as the camera closes on the body.
+uniform float uNormalStrength;
 #endif
 #ifdef USE_SPECMAP
 uniform sampler2D uSpecMap;
@@ -140,11 +155,11 @@ void main() {
   // perpendicular to both the spin axis and the surface normal.
   vec3 east = cross(uPoleWorld, N);
   float eastLen = length(east);
-  if (eastLen > 1e-4) {
+  if (eastLen > 1e-4 && uNormalStrength > 0.001) {
     vec3 T = east / eastLen;
     vec3 B = cross(N, T);
     vec3 nt = texture2D(uNormalMap, vUv).xyz * 2.0 - 1.0;
-    nt.xy *= uNormalScale;
+    nt.xy *= uNormalScale * uNormalStrength;
     N = normalize(T * nt.x + B * nt.y + N * nt.z);
   }
 #endif
@@ -244,10 +259,14 @@ export function createSurfaceMaterial(def, tex, opts = {}) {
     uniforms.uNightMap = { value: tex.nightMap };
     uniforms.uNightStrength = { value: 1.4 };
   }
-  if (tex.normalMap) {
+  if (tex.normalMap || def.relief) {
     defines.USE_NORMALMAP = '';
-    uniforms.uNormalMap = { value: tex.normalMap };
-    uniforms.uNormalScale = { value: def.normalScale ?? 0.5 };
+    // A body whose relief arrives later still compiles with the path enabled,
+    // bound to a flat placeholder, so swapping the real map in is just a
+    // texture assignment.
+    uniforms.uNormalMap = { value: tex.normalMap ?? flatNormalTexture() };
+    uniforms.uNormalScale = { value: def.relief?.scale ?? def.normalScale ?? 0.5 };
+    uniforms.uNormalStrength = { value: def.relief ? 0 : 1 };
   }
   if (tex.specularMap) {
     defines.USE_SPECMAP = '';

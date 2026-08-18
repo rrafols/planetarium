@@ -16,6 +16,10 @@
  *
  * `tidal: true` marks a synchronous rotator with no IAU rotation entry; its
  * orientation is derived so the same hemisphere always faces its planet.
+ *
+ * `relief` is a distance-gated normal map: loaded on approach and faded in by
+ * camera distance, because at range the relief is sub-pixel and only adds
+ * aliasing.
  */
 
 export const BODIES = [
@@ -29,7 +33,7 @@ export const BODIES = [
   {
     key: 'mercury', name: 'Mercury', kind: 'planet', ephem: 'planet', parent: 'sun',
     radius: 2439.7, color: 0xa8a29a,
-    map: 'mercury.jpg', bumpScale: 0.012, roughness: 0.95,
+    map: 'mercury.jpg', roughness: 0.95,
   },
   {
     key: 'venus', name: 'Venus', kind: 'planet', ephem: 'planet', parent: 'sun',
@@ -52,13 +56,21 @@ export const BODIES = [
   {
     key: 'moon', name: 'Moon', kind: 'moon', ephem: 'moon', parent: 'earth',
     radius: 1737.4, color: 0xbdb9b2,
-    map: 'moon.jpg', bumpScale: 0.02, roughness: 1.0,
+    map: 'moon.jpg', roughness: 1.0,
     hires: { map: 'hi/moon.jpg' },
+    // Real LOLA topography, fetched only once you are close enough for the
+    // relief to resolve. See scripts/make-normal-map.mjs.
+    relief: {
+      map: 'moon_normal.png',
+      scale: 1.5,
+      fadeIn: 150,  // body radii: fully faded out beyond this
+      fadeFull: 25, // fully applied inside this
+    },
   },
   {
     key: 'mars', name: 'Mars', kind: 'planet', ephem: 'planet', parent: 'sun',
     radius: 3396.2, polar: 3376.2, color: 0xc1613a,
-    map: 'mars.jpg', bumpScale: 0.015, roughness: 0.95,
+    map: 'mars.jpg', roughness: 0.95,
     atmosphere: { color: 0xd8a07a, thickness: 0.012, strength: 0.7 },
     hires: { map: 'hi/mars.jpg' },
   },

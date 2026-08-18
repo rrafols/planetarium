@@ -124,6 +124,30 @@ the geography rotated by Delta-T — currently ~69 s, or 0.29° of longitude, ab
 32 km at the equator, which is a serious fraction of a 100-270 km umbra. See
 `src/core/deltat.js`.
 
+### Lunar relief
+
+The Moon carries a normal map derived from **LOLA** laser-altimeter topography,
+so crater rims catch the light for real rather than being painted on. It is
+generated from the 32-bit float DEM by `scripts/make-normal-map.mjs`, which
+differentiates the elevation model and scales the longitudinal gradient by
+cos(latitude) — without that, slopes blow up toward the poles.
+
+It is **distance-gated**: the map is several megabytes that most sessions never
+need, and at range the relief is finer than a pixel, so applying it there buys
+nothing and costs aliasing as sub-pixel slopes flicker across the terminator.
+The map is fetched on approach and its strength eased in between 150 and 25
+body radii. Strength is a uniform rather than a `#define`, so fading it in never
+triggers a shader recompile.
+
+Two things worth knowing when looking at it. The Moon uses a Lommel-Seeliger
+BRDF, so at full phase it genuinely flattens out — relief reads most strongly
+near quarter phases, which is correct rather than a bug. And normal mapping
+alone casts no shadows: near the terminator, where grazing light should throw
+long shadows across craters, you get facet shading but no occlusion.
+
+The same `relief` field works for any body given a suitable DEM; Mercury and
+Mars have equivalent public altimetry.
+
 ### The asteroid belt
 
 40,000 particles, each carrying its own orbital elements and propagated in the

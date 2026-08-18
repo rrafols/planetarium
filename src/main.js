@@ -369,6 +369,58 @@ const handlers = {
 
 /* --------------------------------------------------------------- hi-res */
 
+/* ------------------------------------------------------- surface relief */
+
+const reliefState = new Map(); // key -> { loading, loaded, strength }
+
+/**
+ * Fade each relief-mapped body's normal map in as the camera closes, and fetch
+ * the map the first time it could matter.
+ *
+ * Two reasons this is distance-gated rather than simply always on. The map is
+ * megabytes that most sessions never need, and at range the relief is finer
+ * than a pixel, so applying it there buys nothing and costs aliasing as
+ * sub-pixel slopes flicker under the terminator.
+ */
+function updateRelief() {
+  for (const def of BODIES) {
+    if (!def.relief) continue;
+    const entry = builder.bodies.get(def.key);
+    if (!entry) continue;
+
+    const radii = rig.position.distanceTo(builder.displayPos(def.key)) / entry.drawRadius;
+    const { fadeIn, fadeFull } = def.relief;
+    const target = MathUtils.clamp(
+      MathUtils.inverseLerp(fadeIn, fadeFull, radii), 0, 1,
+    );
+
+    let st = reliefState.get(def.key);
+    if (!st) {
+      st = { loading: false, loaded: false, strength: 0 };
+      reliefState.set(def.key, st);
+    }
+
+    if (target > 0 && !st.loaded && !st.loading) {
+      st.loading = true;
+      loadStreaming(renderer, def.relief.map, () => {})
+        .then((tex) => {
+          entry.material.uniforms.uNormalMap.value = tex;
+          st.loaded = true;
+        })
+        .catch((err) => {
+          console.warn(`relief map unavailable for ${def.key}`, err);
+          st.loading = false;
+        });
+    }
+
+    // Ease, so relief grows in rather than popping at a threshold.
+    const want = st.loaded ? target : 0;
+    st.strength += (want - st.strength) * 0.08;
+    const u = entry.material.uniforms.uNormalStrength;
+    if (u) u.value = st.strength;
+  }
+}
+
 const MB = (bytes) => (bytes / 1048576).toFixed(1);
 
 async function ensureHiRes() {
@@ -632,6 +684,8 @@ function frame() {
 
   tv.update(dt);
   tv.tick();
+
+  updateRelief();
 
   updateExposure(dt);
   belt.update(clock.jd, builder.origin, view.blend, exposure);
