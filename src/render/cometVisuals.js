@@ -21,8 +21,8 @@
  */
 
 import {
-  Mesh, ConeGeometry, PlaneGeometry, ShaderMaterial, AdditiveBlending,
-  Object3D, Vector3, Color,
+  Mesh, PlaneGeometry, ShaderMaterial, AdditiveBlending, DoubleSide,
+  Matrix4, Object3D, Vector3, Color,
 } from 'three';
 import { AU } from '../core/constants.js';
 import { COMETS } from '../ephem/comets.js';
@@ -64,33 +64,46 @@ const TAIL_VERT = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
 varying vec2 vUv;
-varying float vAlong;
 void main() {
   vUv = uv;
-  // ConeGeometry runs from apex (y = +h/2) to base (y = -h/2); remap to 0 at
-  // the nucleus and 1 at the far end of the tail.
-  vAlong = uv.y;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   #include <logdepthbuf_vertex>
 }
 `;
 
+/**
+ * The tail is a camera-facing quad shaped entirely in the fragment shader,
+ * not a cone.
+ *
+ * A cone brings two problems that a billboard does not: its wrap seam shows as
+ * a hard edge under additive blending, and its silhouette reads as solid
+ * geometry rather than as gas. Shaping a quad instead gives direct control of
+ * the plume's taper and lets the edges fall off smoothly in every direction.
+ *
+ * The quad is built so v = 0 sits on the nucleus and v = 1 at the far end, so
+ * density falls off *downstream* — which is the way round a real tail goes.
+ */
 const TAIL_FRAG = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_fragment>
 varying vec2 vUv;
-varying float vAlong;
 uniform vec3 uColor;
 uniform float uIntensity;
+uniform float uSpread;   // how much the plume fans out along its length
 
 void main() {
   #include <logdepthbuf_fragment>
-  // Dense and narrow at the nucleus, fading and spreading downstream.
-  float along = clamp(vAlong, 0.0, 1.0);
-  float fade = pow(1.0 - along, 1.9);
-  // Soften the cone's edges so it reads as gas rather than as geometry.
-  float edge = sin(vUv.x * 3.14159265);
-  gl_FragColor = vec4(uColor * uIntensity * fade * edge * 0.55, 1.0);
+  float along = clamp(vUv.y, 0.0, 1.0);
+  float across = vUv.x * 2.0 - 1.0;             // -1 .. 1 across the width
+
+  // Narrow at the nucleus, fanning downstream.
+  float halfWidth = mix(0.13, 1.0, pow(along, uSpread));
+  float d = abs(across) / halfWidth;
+  if (d > 1.0) discard;
+
+  float profile = pow(1.0 - d * d, 1.7);        // soft edges
+  float fade = pow(1.0 - along, 1.7);           // density drops with distance
+  gl_FragColor = vec4(uColor * uIntensity * fade * profile, 1.0);
 }
 `;
 
@@ -108,25 +121,30 @@ function comaMaterial(color) {
   });
 }
 
-function tailMaterial(color) {
+function tailMaterial(color, spread) {
   return new ShaderMaterial({
     uniforms: {
       uColor: { value: new Color(color) },
       uIntensity: { value: 1 },
+      uSpread: { value: spread },
     },
     vertexShader: TAIL_VERT,
     fragmentShader: TAIL_FRAG,
     transparent: true,
     blending: AdditiveBlending,
     depthWrite: false,
-    side: 2, // DoubleSide
+    side: DoubleSide,
   });
 }
 
 const _sunDir = new Vector3();
 const _vel = new Vector3();
 const _dir = new Vector3();
-const _prev = new Vector3();
+const _centre = new Vector3();
+const _toCam = new Vector3();
+const _bx = new Vector3();
+const _bz = new Vector3();
+const _basis = new Matrix4();
 
 export class CometVisuals {
   /**
@@ -145,12 +163,14 @@ export class CometVisuals {
       const coma = new Mesh(new PlaneGeometry(1, 1), comaMaterial(0x9fd8ff));
       coma.renderOrder = 4;
 
-      // Ion tail: straight, blue, anti-sunward.
-      const ion = new Mesh(new ConeGeometry(1, 1, 24, 1, true), tailMaterial(0x7fb4ff));
+      // Ion tail: narrow, straight, blue, driven straight down the anti-sun
+      // line by the solar wind.
+      const ion = new Mesh(new PlaneGeometry(1, 1), tailMaterial(0x7fb4ff, 1.1));
       ion.renderOrder = 3;
 
-      // Dust tail: broader, warmer, and swung toward the direction of travel.
-      const dust = new Mesh(new ConeGeometry(1, 1, 24, 1, true), tailMaterial(0xffd9a8));
+      // Dust tail: broader and warmer, and swung toward the direction of
+      // travel because heavier grains keep more of the orbital momentum.
+      const dust = new Mesh(new PlaneGeometry(1, 1), tailMaterial(0xffd9a8, 0.55));
       dust.renderOrder = 3;
 
       group.add(coma, ion, dust);
@@ -212,31 +232,44 @@ export class CometVisuals {
 
       const comaSize = AU * (0.0008 + 0.006 * activity) * sizeFactor * lengthScale;
       e.coma.scale.setScalar(comaSize);
-      e.coma.lookAt(0, 0, 0); // camera sits at the scene origin
+      e.coma.quaternion.copy(ctx.cameraQuaternion);
       e.coma.material.uniforms.uIntensity.value = intensity(activity, ctx.exposure, 1.1);
 
       const tailLength = AU * (0.01 + 0.30 * activity) * sizeFactor * lengthScale;
       const tailWidth = comaSize * 1.15;
 
       this._orientTail(e.ion, _sunDir, tailLength, tailWidth,
-        intensity(activity, ctx.exposure, 0.9));
+        intensity(activity, ctx.exposure, 0.9), pos);
 
       // Dust lags toward the direction of travel; heavier grains keep more of
       // the comet's orbital momentum and fall behind the ion tail.
       _dir.copy(_sunDir);
       if (_vel.lengthSq() > 0) _dir.addScaledVector(_vel.normalize(), -0.28).normalize();
-      this._orientTail(e.dust, _dir, tailLength * 0.72, tailWidth * 1.7,
-        intensity(activity, ctx.exposure, 0.7));
+      this._orientTail(e.dust, _dir, tailLength * 0.72, tailWidth * 1.9,
+        intensity(activity, ctx.exposure, 0.7), pos);
     }
   }
 
-  /** Point a cone down `dir`, apex at the nucleus. */
-  _orientTail(mesh, dir, length, width, intensityValue) {
-    mesh.scale.set(width, length, width);
-    // The cone's axis is +Y with the apex at +h/2, so aiming -Y down `dir`
-    // puts the apex on the nucleus and the open base downstream.
-    mesh.quaternion.setFromUnitVectors(_UP_NEG, dir);
+  /**
+   * Lay the plume quad down `dir` with its near edge on the nucleus, rotated
+   * about that axis to face the camera as squarely as possible.
+   */
+  _orientTail(mesh, dir, length, width, intensityValue, nucleusPos) {
+    mesh.scale.set(width, length, 1);
     mesh.position.copy(dir).multiplyScalar(length * 0.5);
+
+    // Camera sits at the scene origin, so the view direction from the quad's
+    // centre is simply -centre.
+    _centre.copy(nucleusPos).addScaledVector(dir, length * 0.5);
+    _toCam.copy(_centre).negate().normalize();
+
+    _bx.crossVectors(dir, _toCam);
+    if (_bx.lengthSq() < 1e-12) _bx.set(1, 0, 0); // looking straight down the tail
+    _bx.normalize();
+    _bz.crossVectors(_bx, dir).normalize();
+    _basis.makeBasis(_bx, dir, _bz);
+    mesh.quaternion.setFromRotationMatrix(_basis);
+
     mesh.material.uniforms.uIntensity.value = intensityValue;
   }
 
@@ -244,8 +277,6 @@ export class CometVisuals {
     this.root.visible = v;
   }
 }
-
-const _UP_NEG = new Vector3(0, -1, 0);
 
 function intensity(activity, exposure, gain) {
   // Keep apparent brightness steady as auto-exposure opens and closes.

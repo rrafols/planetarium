@@ -616,6 +616,7 @@ function frame() {
     displayPos: (k) => builder.displayPos(k).clone().sub(builder.origin),
     sunPos: _sunRel,
     trueDistanceAU: (k) => system.sunDistance(k) / AU,
+    cameraQuaternion: camera.quaternion,
     exposure,
     // How much the view transform has compressed this comet's orbit; the coma
     // and tail follow the same compression so they stay proportionate.
@@ -646,13 +647,26 @@ boot().catch((err) => {
 });
 
 // Exposed for the high-res toggle, which is wired up lazily.
+/**
+ * Debug/automation handle.
+ *
+ * Used by the headless checks to drive the app without going through the UI —
+ * jump the clock, focus a body, and read back internals such as the current
+ * exposure or a comet's tail geometry. Not part of any public interface.
+ */
 window.__planetarium = {
-  ensureHiRes, system, rig,
+  // state
+  system,
+  rig,
   builder: () => builder,
   scene: () => scene,
+  camera: () => camera,
   cometFx: () => cometFx,
   exposure: () => exposure,
-  camera: () => camera,
-  focus: (k) => focusBody(k, false),
+  // actions
+  focus: (key) => focusBody(key, false),
   setJD: (jd) => { clock.jd = jd; system.update(jd); },
+  ensureHiRes,
+  // re-exported so test code can build vectors in the page context
+  THREE: { Vector3 },
 };
