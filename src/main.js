@@ -22,6 +22,7 @@ import { SATELLITE_PERIODS } from './ephem/satellites.js';
 import { loadTextures, loadStreaming } from './render/textures.js';
 import { SceneBuilder } from './render/scene.js';
 import { Starfield } from './render/starfield.js';
+import { AsteroidBelt } from './render/asteroidBelt.js';
 import { updateFrameUniforms, setFallbackRingMap } from './render/bodyMaterial.js';
 import { CameraRig } from './controls/cameraRig.js';
 import { Clock } from './sim/clock.js';
@@ -73,11 +74,23 @@ const raycaster = new Raycaster();
 
 let builder = null;
 let starfield = null;
+let belt = null;
 let labels = null;
 let hud = null;
 
+/**
+ * Particle budget for the belt. TV browsers and phones get a smaller field:
+ * the cost is entirely vertex work, so it scales directly with the count.
+ */
+const quality = {
+  beltCount: looksLikeTV() ? 9000
+    : matchMedia('(pointer: coarse)').matches ? 14000
+      : 40000,
+};
+
 const options = {
   orbits: true, labels: true, eclipse: true, bloom: true, stars: true, night: true,
+  belt: true,
 };
 
 let exposure = 1;
@@ -105,6 +118,7 @@ async function boot() {
   builder = new SceneBuilder(scene, textures);
   setFallbackRingMap(textures['saturn_ring.png']);
   starfield = new Starfield(scene, textures['stars_2k.jpg']);
+  belt = new AsteroidBelt(scene, quality.beltCount);
   labels = new Labels(document.getElementById('label-layer'));
   labels.onSelect((key) => focusBody(key));
 
@@ -276,6 +290,7 @@ const handlers = {
     if (name === 'orbits') builder.setOrbitsVisible(value);
     if (name === 'labels') labels.setVisible(value);
     if (name === 'stars') starfield.setVisible(value);
+    if (name === 'belt') belt.setVisible(value);
     if (name === 'bloom') bloomPass.enabled = value;
     if (name === 'night') {
       const m = builder.bodies.get('earth').material;
@@ -413,13 +428,17 @@ function irradianceFor(key) {
  * same factor so the starfield stays a fixed reference brightness.
  */
 function updateExposure(dt) {
+  // Distance from the Sun of whatever we are looking at. The Sun itself sits at
+  // the origin, so its own heliocentric distance is zero and would peg the
+  // exposure wide open; there, the camera's distance is the meaningful one.
   const focusPos = system.pos(rig.focusKey);
-  const dAU = Math.max(focusPos.length(), AU * 0.2) / AU;
+  const lit = rig.focusKey === 'sun' ? rig.position.length() : focusPos.length();
+  const dAU = Math.max(lit, AU * 0.2) / AU;
   const target = MathUtils.clamp(dAU * dAU, 0.22, 60);
   const k = 1 - Math.exp(-dt * 1.6);
   exposure = Math.exp(Math.log(exposure) + (Math.log(target) - Math.log(exposure)) * k);
   renderer.toneMappingExposure = exposure;
-  starfield.setBrightness(MathUtils.clamp(1.7 / exposure, 0.05, 3));
+  starfield.setBrightness(MathUtils.clamp(1.7 / exposure, 0.05, 1.6));
 }
 
 let eclipseCheckAccum = 0;
@@ -549,6 +568,7 @@ function frame() {
   tv.tick();
 
   updateExposure(dt);
+  belt.update(clock.jd, builder.origin, view.blend, exposure);
   updateEclipseBanner(dt);
   updateInfoPanel(dt);
 

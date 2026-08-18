@@ -11,9 +11,11 @@
 import { Vector3, Matrix4 } from 'three';
 import { AU_KM, KM, EMB_MOON_FRACTION } from '../core/constants.js';
 import { BODIES } from '../data/bodies.js';
-import { planetPosition, orbitalPeriodDays } from './planets.js';
+import { planetPosition, minorBodyPosition, minorBodyPeriod,
+  orbitalPeriodDays } from './planets.js';
 import { moonPosition } from './moon.js';
-import { galileanPositions, keplerianMoonPosition } from './satellites.js';
+import { galileanPositions, keplerianMoonPosition, keplerianMoonPeriod,
+  CHARON_MASS_FRACTION } from './satellites.js';
 import { bodyOrientation, bodyPole, HAS_ROTATION } from './rotation.js';
 
 export const ECL_TO_SCENE = new Matrix4().makeRotationX(-Math.PI / 2);
@@ -95,6 +97,28 @@ export class SolarSystem {
       this.state.get(key).pos.copy(jup).add(_v);
     }
 
+    // --- Minor bodies (Ceres) ----------------------------------------------
+    for (const b of BODIES) {
+      if (b.ephem !== 'minor') continue;
+      minorBodyPosition(b.key, jd, _ecl);
+      this._setEcliptic(b.key, _ecl.x * AU_KM * KM, _ecl.y * AU_KM * KM, _ecl.z * AU_KM * KM);
+    }
+
+    // --- Pluto and Charon about their common barycentre ---------------------
+    // Charon carries about 12% of the system mass, so the barycentre lies some
+    // 2100 km above Pluto's surface: unlike every other planet-moon pair, Pluto
+    // visibly circles a point outside itself. Standish's elements give that
+    // barycentre, so Pluto has to be offset back from it before the generic
+    // satellite pass places Charon relative to Pluto.
+    if (this.state.has('pluto')) {
+      planetPosition('pluto', jd, _ecl);
+      keplerianMoonPosition('charon', jd, _kep);
+      _v.copy(_kep).multiplyScalar(KM).applyMatrix4(ECL_TO_SCENE);
+      this._setEcliptic('pluto',
+        _ecl.x * AU_KM * KM, _ecl.y * AU_KM * KM, _ecl.z * AU_KM * KM);
+      this.state.get('pluto').pos.addScaledVector(_v, -CHARON_MASS_FRACTION);
+    }
+
     // --- Keplerian moons, relative to their planet --------------------------
     for (const b of BODIES) {
       if (b.ephem !== 'kepler') continue;
@@ -151,8 +175,9 @@ export class SolarSystem {
   orbitalPeriod(key) {
     const b = this.state.get(key)?.def;
     if (!b) return null;
-    if (b.ephem === 'planet') return orbitalPeriodDays(b.key);
+    if (b.ephem === 'planet' || b.ephem === 'pluto') return orbitalPeriodDays(b.key);
     if (b.key === 'earth') return orbitalPeriodDays('emb');
-    return null;
+    if (b.ephem === 'minor') return minorBodyPeriod(b.key);
+    return keplerianMoonPeriod(b.key);
   }
 }

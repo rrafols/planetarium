@@ -274,6 +274,69 @@ Object.assign(RECIPES, {
   },
 });
 
+
+/* ------------------------------------------------- Pluto and Charon */
+
+/** Angular distance from a direction given as (longitude, latitude) degrees. */
+function angleFrom(nx, ny, nz, lonDeg, latDeg) {
+  const lo = lonDeg * Math.PI / 180;
+  const la = latDeg * Math.PI / 180;
+  const cx = Math.cos(la) * Math.cos(lo);
+  const cy = Math.cos(la) * Math.sin(lo);
+  const cz = Math.sin(la);
+  return Math.acos(Math.max(-1, Math.min(1, nx * cx + ny * cy + nz * cz)));
+}
+
+Object.assign(RECIPES, {
+  /**
+   * Pluto. Two features carry the whole identity: Tombaugh Regio, the bright
+   * nitrogen-ice plain, and the dark equatorial band of tholins beside it.
+   * Pluto is tidally locked to Charon, so the prime meridian faces Charon and
+   * the bright plain sits on the far side, near longitude 180.
+   */
+  pluto: (nx, ny, nz, lat) => {
+    const base = fbm(nx * 2.6, ny * 2.6, nz * 2.6, 5);
+    const fine = fbm(nx * 9, ny * 9, nz * 9, 3);
+    let t = base * 0.55 + fine * 0.25 + 0.18;
+
+    // Dark tholin band, equatorial and on the Charon-facing side.
+    const band = Math.exp(-((lat / 0.30) ** 2));
+    const cthulhu = Math.exp(-((angleFrom(nx, ny, nz, 40, 0) / 1.05) ** 2));
+    t -= band * cthulhu * 0.55;
+
+    // Nitrogen plain: a broad bright lobe with a ragged, noisy margin.
+    const d = angleFrom(nx, ny, nz, 180, 12);
+    const edge = 0.62 + 0.13 * (fbm(nx * 4 + 60, ny * 4, nz * 4, 3) - 0.5) * 2;
+    const heart = 1 - smooth(Math.min(1, Math.max(0, (d - edge * 0.72) / (edge * 0.35))));
+    t += heart * 0.55;
+
+    return ramp([
+      [0.0, [46, 30, 22]],
+      [0.3, [116, 78, 56]],
+      [0.55, [176, 140, 108]],
+      [0.8, [226, 206, 178]],
+      [1.0, [246, 240, 226]],
+    ], t);
+  },
+
+  /** Charon: grey and cratered, with the dark red north polar cap. */
+  charon: (nx, ny, nz, lat) => {
+    const base = fbm(nx * 3.2, ny * 3.2, nz * 3.2, 5);
+    const fine = fbm(nx * 13, ny * 13, nz * 13, 3);
+    let c = ramp([
+      [0.0, [72, 70, 68]],
+      [0.45, [126, 122, 118]],
+      [0.75, [170, 166, 160]],
+      [1.0, [206, 202, 196]],
+    ], base * 0.55 + fine * 0.25 + 0.22);
+
+    // Mordor Macula — tholins cold-trapped on the north pole.
+    const cap = Math.exp(-(((lat - 1.35) / 0.42) ** 2));
+    if (cap > 0.02) c = mixRGB(c, [92, 52, 44], Math.min(0.85, cap * 1.1));
+    return c;
+  },
+});
+
 /** Impact craters, drawn after the base map. */
 const CRATER_COUNTS = {
   callisto: 900, ganymede: 320, io: 0, europa: 40, titan: 0,
@@ -281,6 +344,7 @@ const CRATER_COUNTS = {
   mimas: 420, enceladus: 60, tethys: 380, dione: 340, rhea: 520, iapetus: 460,
   miranda: 300, ariel: 220, umbriel: 500, titania: 300, oberon: 420,
   triton: 40,
+  pluto: 30, charon: 340,
 };
 
 function drawCraters(ctx, kind, seed, W, H) {

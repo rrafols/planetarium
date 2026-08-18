@@ -36,6 +36,11 @@ const IAU = {
   ganymede: [268.2, -0.009, 64.57, 0.003, 44.064, 50.3176081],
   callisto: [268.72, -0.009, 64.83, 0.003, 259.51, 21.5710715],
   titan: [39.4827, 0, 83.4279, 0, 186.5855, 22.5769768],
+  ceres: [291.418, 0, 66.764, 0, 170.65, 952.1532],
+  // Pluto and Charon are mutually tidally locked, so they share a spin rate
+  // and a pole; only the prime-meridian offset differs.
+  pluto: [132.993, 0, -6.163, 0, 302.695, 56.3625225],
+  charon: [132.993, 0, -6.163, 0, 122.695, 56.3625225],
 };
 
 const _pole = new Vector3();

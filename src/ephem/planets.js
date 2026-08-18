@@ -9,7 +9,7 @@
  * Output is J2000 mean-ecliptic heliocentric rectangular coordinates in AU.
  */
 
-import { DEG, centuries } from '../core/constants.js';
+import { DEG, J2000, centuries } from '../core/constants.js';
 
 // a (AU), e, I (deg), L (deg), longPeri (deg), longNode (deg)
 // second row of each entry = rate per Julian century
@@ -47,6 +47,30 @@ const ELEMENTS = {
     e0: [30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574],
     dt: [0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464, -0.00508664],
   },
+  /**
+   * Pluto is absent from Standish's 1800-2050 table; these come from his
+   * 3000 BC - 3000 AD set, which carries an extra quadratic term `b` applied to
+   * the mean anomaly. This is the Pluto *system barycentre* — Charon is massive
+   * enough (about an eighth of Pluto) that the barycentre lies outside Pluto's
+   * surface, so the two genuinely orbit a point in empty space. See system.js.
+   */
+  pluto: {
+    e0: [39.48211675, 0.2488273, 17.14001206, 238.92903833, 224.06891629, 110.30393684],
+    dt: [-0.00031596, 0.0000517, 0.00004818, 145.20780515, -0.04062942, -0.01183482],
+    b: -0.01262724,
+  },
+};
+
+/**
+ * Minor bodies given as fixed osculating elements at J2000 rather than as a
+ * fitted secular series. Node, inclination, eccentricity and semi-major axis
+ * are the published values; the mean anomaly at epoch is approximate, so treat
+ * position *along* the orbit as illustrative.
+ *
+ * a (AU), e, I (deg), node (deg), argPeri (deg), M0 (deg at J2000)
+ */
+export const MINOR_BODIES = {
+  ceres: { a: 2.7658, e: 0.0785, I: 10.5934, node: 80.3293, peri: 73.5976, M0: 95.9891 },
 };
 
 export const PLANET_KEYS = Object.keys(ELEMENTS);
@@ -82,7 +106,9 @@ export function planetPosition(key, jd, out = { x: 0, y: 0, z: 0 }) {
   const node = (el.e0[5] + el.dt[5] * T) * DEG;
 
   const omega = peri * DEG - node; // argument of perihelion
-  let M = ((((L - peri) % 360) + 540) % 360) - 180; // wrap to [-180,180)
+  // The long-span element set adds a quadratic term to the mean anomaly.
+  let M = L - peri + (el.b ?? 0) * T * T;
+  M = ((((M % 360) + 540) % 360)) - 180; // wrap to [-180,180)
 
   const E = solveKepler(M, e) * DEG;
 
@@ -105,6 +131,37 @@ export function planetPosition(key, jd, out = { x: 0, y: 0, z: 0 }) {
   out.y = sn * x1 + cn * ci * y1;
   out.z = si * y1;
   return out;
+}
+
+/**
+ * Position of a minor body from fixed osculating elements.
+ * Same frame and units as planetPosition().
+ */
+export function minorBodyPosition(key, jd, out = { x: 0, y: 0, z: 0 }) {
+  const el = MINOR_BODIES[key];
+  const n = 0.9856076686 / (el.a * Math.sqrt(el.a)); // deg/day, Gaussian constant
+  const M = el.M0 + n * (jd - J2000);
+  const E = solveKepler(((M % 360) + 540) % 360 - 180, el.e) * DEG;
+
+  const xp = el.a * (Math.cos(E) - el.e);
+  const yp = el.a * Math.sqrt(1 - el.e * el.e) * Math.sin(E);
+
+  const w = el.peri * DEG;
+  const node = el.node * DEG;
+  const I = el.I * DEG;
+  const x1 = Math.cos(w) * xp - Math.sin(w) * yp;
+  const y1 = Math.sin(w) * xp + Math.cos(w) * yp;
+
+  out.x = Math.cos(node) * x1 - Math.sin(node) * Math.cos(I) * y1;
+  out.y = Math.sin(node) * x1 + Math.cos(node) * Math.cos(I) * y1;
+  out.z = Math.sin(I) * y1;
+  return out;
+}
+
+/** Orbital period of a minor body, from Kepler's third law. */
+export function minorBodyPeriod(key) {
+  const a = MINOR_BODIES[key].a;
+  return 365.256898326 * a * Math.sqrt(a);
 }
 
 /** Sidereal orbital period in days, from the mean-longitude rate. */

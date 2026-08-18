@@ -34,7 +34,7 @@ import {
   createRingMaterial, createSunMaterial, createCoronaMaterial,
 } from './bodyMaterial.js';
 import { proceduralTexture } from './proceduralTextures.js';
-import { planetPosition } from '../ephem/planets.js';
+import { planetPosition, minorBodyPosition, minorBodyPeriod } from '../ephem/planets.js';
 import { SATELLITE_PERIODS } from '../ephem/satellites.js';
 import { ViewTransform } from '../view/transform.js';
 
@@ -178,7 +178,7 @@ export class SceneBuilder {
     for (const def of BODIES) {
       if (def.kind === 'star') continue;
 
-      const isPlanet = def.ephem === 'planet' || def.ephem === 'earth';
+      const isPlanet = HELIOCENTRIC.has(def.ephem);
       const segments = isPlanet ? this.quality.orbitSegments : 192;
       const geo = new BufferGeometry();
       geo.setAttribute('position', new BufferAttribute(new Float32Array(segments * 3), 3));
@@ -335,12 +335,14 @@ export class SceneBuilder {
     const n = orbit.segments;
     const p = new Vector3();
 
-    if (def.ephem === 'planet' || def.ephem === 'earth') {
+    if (HELIOCENTRIC.has(def.ephem)) {
+      const minor = def.ephem === 'minor';
       const ephemKey = def.ephem === 'earth' ? 'emb' : key;
-      const periodDays = (360 / RATES[ephemKey]) * 36525;
+      const periodDays = minor ? minorBodyPeriod(key) : (360 / RATES[ephemKey]) * 36525;
+      const sample = minor ? minorBodyPosition : planetPosition;
       const tmp = { x: 0, y: 0, z: 0 };
       for (let i = 0; i < n; i++) {
-        planetPosition(ephemKey, jd + (i / n) * periodDays, tmp);
+        sample(ephemKey, jd + (i / n) * periodDays, tmp);
         // ecliptic AU -> scene axes, scene units
         p.set(tmp.x, tmp.z, -tmp.y).multiplyScalar(AU_KM * KM);
         this.view.mapHeliocentric(p, p);
@@ -432,10 +434,14 @@ const _poleVec = new Vector3();
 const _ringCenter = new Vector3();
 const _ringNormal = new Vector3();
 
+/** Ephemeris types whose orbit is drawn about the Sun rather than a planet. */
+const HELIOCENTRIC = new Set(['planet', 'earth', 'minor', 'pluto']);
+
 const SAT_PERIOD = SATELLITE_PERIODS;
 
 // Mean-longitude rates from the Standish table, deg/century.
 const RATES = {
+  pluto: 145.20780515,
   mercury: 149472.67411175,
   venus: 58517.81538729,
   emb: 35999.37244981,

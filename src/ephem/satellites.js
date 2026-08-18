@@ -126,7 +126,19 @@ export const KEPLERIAN_MOONS = {
 
   // Neptune — Triton's 157 deg inclination is what makes it retrograde
   triton: { parent: 'neptune', a: 354759, period: 5.876854, e: 0.000016, i: 156.885, node: 0, peri: 0, l0: 60 },
+
+  // Pluto. `a` is the full Pluto-Charon separation; system.js splits it about
+  // the barycentre, which lies outside Pluto's surface.
+  charon: { parent: 'pluto', a: 19591.4, period: 6.3872304, e: 0.0002, i: 0.08, node: 0, peri: 0, l0: 25 },
 };
+
+/**
+ * Charon / (Pluto + Charon) mass fraction. At 0.1218 the ratio is by far the
+ * largest of any planet-satellite pair in the solar system, which is why the
+ * barycentre sits ~2100 km above Pluto's surface and both bodies visibly circle
+ * a point in empty space.
+ */
+export const CHARON_MASS_FRACTION = 0.1218 / 1.1218;
 
 function solveKepler(M, e) {
   let E = M + e * Math.sin(M);
@@ -173,6 +185,11 @@ export function keplerianMoonPosition(key, jd, out) {
     .copy(f.node).multiplyScalar(xe)
     .addScaledVector(f.perp, ye)
     .addScaledVector(f.pole, ze);
+}
+
+/** Orbital period of a Keplerian moon, or null. */
+export function keplerianMoonPeriod(key) {
+  return KEPLERIAN_MOONS[key]?.period ?? null;
 }
 
 /** Orbital periods in days, for the info panel. */

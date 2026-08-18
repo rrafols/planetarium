@@ -10,6 +10,8 @@
  *   'moon'       EMB plus the Moon's barycentre offset
  *   'galilean'   Meeus ch. 44
  *   'kepler'     Keplerian in the parent's equatorial plane (approximate phase)
+ *   'minor'      fixed osculating elements at J2000 (Ceres)
+ *   'pluto'      Pluto system barycentre, then split with Charon
  *
  * `tidal: true` marks a synchronous rotator with no IAU rotation entry; its
  * orientation is derived so the same hemisphere always faces its planet.
@@ -66,6 +68,11 @@ export const BODIES = [
   {
     key: 'deimos', name: 'Deimos', kind: 'moon', ephem: 'kepler', parent: 'mars',
     radius: 6.2, color: 0x9a8e82, procedural: 'deimos', roughness: 1.0, tidal: true,
+  },
+  {
+    key: 'ceres', name: 'Ceres', kind: 'dwarf', ephem: 'minor', parent: 'sun',
+    radius: 469.7, color: 0x8d8983,
+    map: 'ceres.jpg', roughness: 1.0,
   },
   {
     key: 'jupiter', name: 'Jupiter', kind: 'planet', ephem: 'planet', parent: 'sun',
@@ -163,6 +170,15 @@ export const BODIES = [
     key: 'triton', name: 'Triton', kind: 'moon', ephem: 'kepler', parent: 'neptune',
     radius: 1353.4, color: 0xd6c3b4, procedural: 'triton', roughness: 0.7, tidal: true,
     atmosphere: { color: 0xbcd4e8, thickness: 0.012, strength: 0.35 },
+  },
+  {
+    key: 'pluto', name: 'Pluto', kind: 'dwarf', ephem: 'pluto', parent: 'sun',
+    radius: 1188.3, color: 0xc8b09a, procedural: 'pluto', roughness: 0.85,
+    atmosphere: { color: 0x9fc0e0, thickness: 0.02, strength: 0.30 },
+  },
+  {
+    key: 'charon', name: 'Charon', kind: 'moon', ephem: 'kepler', parent: 'pluto',
+    radius: 606.0, color: 0x9a938c, procedural: 'charon', roughness: 0.95, tidal: true,
   },
 ];
 

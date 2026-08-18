@@ -87,6 +87,7 @@ export class Hud {
       'opt-eclipse': 'eclipse',
       'opt-bloom': 'bloom',
       'opt-stars': 'stars',
+      'opt-belt': 'belt',
       'opt-night': 'night',
       'opt-hires': 'hires',
     };
